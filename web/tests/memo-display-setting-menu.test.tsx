@@ -11,6 +11,10 @@ vi.mock("@/utils/i18n", () => ({
       "common.timeline": "Timeline",
       "common.created-at": "Created",
       "common.last-updated-at": "Last updated",
+      "memo.card-font": "Card font",
+      "memo.font-mono": "Monospace",
+      "memo.font-sans": "Sans-serif",
+      "memo.font-serif": "Serif",
       "memo.compact-mode": "Compact mode",
       "memo.direction": "Direction",
       "memo.grid-compact-hint": "Grid layouts always use compact cards.",
@@ -75,6 +79,19 @@ describe("MemoDisplaySettingMenu", () => {
     expect(compactMode).toBeChecked();
     expect(compactMode).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText("Grid layouts always use compact cards.")).toBeInTheDocument();
+  });
+
+  it("shows the saved card font in the View options menu", () => {
+    localStorage.setItem("memos-view-setting", JSON.stringify({ maxColumns: 1, cardFont: "serif" }));
+    render(
+      <ViewProvider>
+        <MemoDisplaySettingMenu />
+      </ViewProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Timeline · View options" }));
+
+    expect(screen.getByRole("combobox", { name: "Card font" })).toHaveTextContent("Serif");
   });
 
   it("opens only from the arrow, not the adjacent Timeline link", () => {

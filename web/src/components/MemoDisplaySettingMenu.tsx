@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { MAX_COLUMNS_VALUES, type MemoMaxColumns, useView } from "@/contexts/ViewContext";
+import { MAX_COLUMNS_VALUES, type MemoCardFont, type MemoMaxColumns, useView } from "@/contexts/ViewContext";
 import { cn } from "@/lib/utils";
 import { useTranslate } from "@/utils/i18n";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -50,6 +50,8 @@ function MemoDisplaySettingsContent() {
     compactMode,
     linkPreview,
     maxColumns,
+    cardFont,
+    setCardFont,
     setTimeBasis,
     setOrderByTimeAsc,
     setCompactMode,
@@ -67,6 +69,12 @@ function MemoDisplaySettingsContent() {
   const sortOrderOptions = [
     { value: "desc", label: t("memo.newest-first") },
     { value: "asc", label: t("memo.oldest-first") },
+  ];
+
+  const cardFontOptions: { value: MemoCardFont; label: string }[] = [
+    { value: "sans", label: t("memo.font-sans") },
+    { value: "serif", label: t("memo.font-serif") },
+    { value: "mono", label: t("memo.font-mono") },
   ];
 
   return (
@@ -159,6 +167,24 @@ function MemoDisplaySettingsContent() {
             </SelectTrigger>
             <SelectContent>
               {sortOrderOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+        <SettingRow label={t("memo.card-font")}>
+          <Select
+            value={cardFont}
+            items={cardFontOptions}
+            onValueChange={(value) => setCardFont(cardFontOptions.find((option) => option.value === value)?.value ?? "sans")}
+          >
+            <SelectTrigger size="xs" className="w-32" aria-label={t("memo.card-font")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {cardFontOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

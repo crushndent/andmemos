@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { ROUTES, resolveCollectionRoute } from "@/router/routes";
 
@@ -8,6 +8,10 @@ export type MemoTimeBasis = "create_time" | "update_time";
 export const MAX_COLUMNS_VALUES = [1, 2, 3, 0] as const;
 export type MemoMaxColumns = (typeof MAX_COLUMNS_VALUES)[number];
 
+/** Font family used for memo card content. */
+export const CARD_FONT_VALUES = ["sans", "serif", "mono"] as const;
+export type MemoCardFont = (typeof CARD_FONT_VALUES)[number];
+
 interface ViewState {
   orderByTimeAsc: boolean;
   timeBasis?: MemoTimeBasis;
@@ -15,6 +19,7 @@ interface ViewState {
   compactMode: boolean;
   linkPreview: boolean;
   maxColumns: MemoMaxColumns;
+  cardFont: MemoCardFont;
 }
 
 interface ViewContextValue {
@@ -23,18 +28,20 @@ interface ViewContextValue {
   compactMode: boolean;
   linkPreview: boolean;
   maxColumns: MemoMaxColumns;
+  cardFont: MemoCardFont;
   setOrderByTimeAsc: (value: boolean) => void;
   setTimeBasis: (field: MemoTimeBasis) => void;
   setCompactMode: (value: boolean) => void;
   setLinkPreview: (value: boolean) => void;
   setMaxColumns: (value: MemoMaxColumns) => void;
+  setCardFont: (value: MemoCardFont) => void;
 }
 
 const ViewContext = createContext<ViewContextValue | null>(null);
 
 const LOCAL_STORAGE_KEY = "memos-view-setting";
 
-const DEFAULT_VIEW_STATE: ViewState = { orderByTimeAsc: false, compactMode: false, linkPreview: true, maxColumns: 0 };
+const DEFAULT_VIEW_STATE: ViewState = { orderByTimeAsc: false, compactMode: false, linkPreview: true, maxColumns: 0, cardFont: "sans" };
 
 export function ViewProvider({ children, enabled = true }: { children: ReactNode; enabled?: boolean }) {
   const getInitialState = (): ViewState => {
@@ -53,6 +60,9 @@ export function ViewProvider({ children, enabled = true }: { children: ReactNode
           compactMode: Boolean(data.compactMode ?? DEFAULT_VIEW_STATE.compactMode),
           linkPreview: Boolean(data.linkPreview ?? DEFAULT_VIEW_STATE.linkPreview),
           maxColumns,
+          cardFont: CARD_FONT_VALUES.includes(data.cardFont as MemoCardFont)
+            ? (data.cardFont as MemoCardFont)
+            : DEFAULT_VIEW_STATE.cardFont,
         };
       }
     } catch (error) {
@@ -87,6 +97,16 @@ export function ViewProvider({ children, enabled = true }: { children: ReactNode
   const setCompactMode = (value: boolean) => updateState({ compactMode: value });
   const setLinkPreview = (value: boolean) => updateState({ linkPreview: value });
   const setMaxColumns = (value: MemoMaxColumns) => updateState({ maxColumns: value });
+  const setCardFont = (value: MemoCardFont) => updateState({ cardFont: value });
+
+  // Card text is styled from a root attribute (see index.css) so no card needs to subscribe to the view.
+  const { cardFont } = activeState;
+  useEffect(() => {
+    document.documentElement.dataset.cardFont = cardFont;
+    return () => {
+      delete document.documentElement.dataset.cardFont;
+    };
+  }, [cardFont]);
 
   return (
     <ViewContext.Provider
@@ -96,11 +116,13 @@ export function ViewProvider({ children, enabled = true }: { children: ReactNode
         compactMode: activeState.compactMode,
         linkPreview: activeState.linkPreview,
         maxColumns: activeState.maxColumns,
+        cardFont,
         setOrderByTimeAsc,
         setTimeBasis,
         setCompactMode,
         setLinkPreview,
         setMaxColumns,
+        setCardFont,
       }}
     >
       {children}

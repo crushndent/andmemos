@@ -296,6 +296,10 @@
       "updated": "Задачи обновлены"
     },
     "grid-compact-hint": "В макетах с сеткой всегда используются компактные карточки.",
+    "card-font": "Card font",
+    "font-mono": "Monospace",
+    "font-sans": "Sans-serif",
+    "font-serif": "Serif",
     "layout": "Макет",
     "layout-auto": "Автоматически",
     "layout-auto-description": "Столько столбцов, сколько помещается на экране",
