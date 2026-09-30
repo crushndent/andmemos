@@ -16,13 +16,18 @@ import { uploadAnchorField } from "./uploadAnchors";
 // Key bindings layered below the autocomplete keymap so its completion-specific
 // keys win while the popup is open. On a list item, Tab/Shift-Tab nest /
 // outdent it (marker-aware, CommonMark-valid); elsewhere they fall through to
-// indentWithTab's plain indent. Escape blurs the editor so keyboard users keep
-// an escape hatch out of the otherwise Tab-trapping editor.
-const editorKeys: KeyBinding[] = [
+// indentWithTab's plain indent. Escape exits editing when the host supplies onEscape (an
+// inline memo edit); otherwise it blurs the editor so keyboard users keep an escape hatch
+// out of the otherwise Tab-trapping editor.
+const createEditorKeys = (onEscape?: () => void): KeyBinding[] => [
   {
     key: "Escape",
     run: (view) => {
-      view.contentDOM.blur();
+      if (onEscape) {
+        onEscape();
+      } else {
+        view.contentDOM.blur();
+      }
       return true;
     },
   },
@@ -64,6 +69,8 @@ export interface EditorExtensionsOptions {
   onFiles: (files: File[], origin: EditorFileOrigin) => void;
   onUpdate: () => void;
   onSubmit: () => void;
+  /** Invoked on Escape; when omitted, Escape just blurs the editor. */
+  onEscape?: () => void;
   getTags: () => string[];
 }
 
@@ -86,6 +93,7 @@ export function buildEditorExtensions({
   onFiles,
   onUpdate,
   onSubmit,
+  onEscape,
   getTags,
 }: EditorExtensionsOptions): Extension[] {
   // Submitting must outrank defaultKeymap's own Mod-Enter (insertBlankLine): the save
@@ -145,7 +153,7 @@ export function buildEditorExtensions({
     tagAutocomplete(getTags),
     // Formatting keys precede defaultKeymap so the conventional Mod-I italic
     // shortcut wins over CodeMirror's generic selectParentSyntax binding.
-    keymap.of([...submitKeys, ...editorKeys, ...formattingKeys, indentWithTab, ...defaultKeymap, ...historyKeymap]),
+    keymap.of([...submitKeys, ...createEditorKeys(onEscape), ...formattingKeys, indentWithTab, ...defaultKeymap, ...historyKeymap]),
     EditorView.updateListener.of((u) => {
       if (u.docChanged) onChange(u.state.doc.toString());
       // Toolbar active-state depends only on the doc and selection; skip the

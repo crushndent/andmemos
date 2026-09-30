@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import toast from "react-hot-toast";
 import { useLocation } from "react-router-dom";
 import { useColumnGridUntrapped } from "@/components/ColumnGrid/ColumnGridContext";
 import { useResolvedUser } from "@/components/MemoContent/MentionResolutionContext";
@@ -18,15 +19,18 @@ import { loadMemoEditor } from "@/components/MemoEditor/loader";
 import type { MemoEditorProps } from "@/components/MemoEditor/types";
 import { useAuth } from "@/contexts/AuthContext";
 import useCurrentUser from "@/hooks/useCurrentUser";
+import { useUpdateMemo } from "@/hooks/useMemoQueries";
+import { handleError } from "@/lib/error";
 import { isMemoBlurred } from "@/lib/tag";
 import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
+import { useTranslate } from "@/utils/i18n";
 import { lazyWithReload } from "@/utils/lazy";
 import { canManageMemo } from "@/utils/user";
 import { MemoBody, MemoCommentListView, MemoHeader } from "./components";
 import MemoPinnedMark from "./components/MemoPinnedMark";
 import { MEMO_CARD_BASE_CLASSES } from "./constants";
-import { useImagePreview } from "./hooks";
+import { useDragToArchive, useImagePreview } from "./hooks";
 import { computeCommentAmount, MemoViewContext } from "./MemoViewContext";
 import { isMemoDetailPath, resolveMemoParentPage } from "./navigation";
 import type { MemoViewHandle, MemoViewProps } from "./types";
@@ -152,6 +156,26 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
     return () => resizeObserver.disconnect();
   }, [props.shareImageDialogOpen]);
 
+  // Drag a card to the left to archive it. No confirmation: archiving is reversible from the
+  // Archived page. Only your own, active memos in a feed can be dragged.
+  const t = useTranslate();
+  const { mutateAsync: updateMemo } = useUpdateMemo();
+  const archiveByDrag = useCallback(async () => {
+    try {
+      await updateMemo({ update: { name: memoData.name, state: State.ARCHIVED }, updateMask: ["state"] });
+      toast.success(t("message.archived-successfully"));
+      return true;
+    } catch (error: unknown) {
+      handleError(error, toast.error, { context: "Archive memo", fallbackMessage: "An error occurred" });
+      return false;
+    }
+  }, [memoData.name, t, updateMemo]);
+  const dragHandlers = useDragToArchive({
+    cardRef,
+    enabled: !readonly && !isArchived && !isInMemoDetailPage,
+    onArchive: archiveByDrag,
+  });
+
   const contextValue = useMemo(
     () => ({
       memo: memoData,
@@ -188,6 +212,9 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
       className={cn(MEMO_CARD_BASE_CLASSES, "group/memo", showCommentPreview ? "mb-0 rounded-b-none" : "mb-2", className)}
       ref={cardRef}
       tabIndex={readonly ? -1 : 0}
+      // pan-y keeps vertical scrolling native on touch while horizontal drags reach the handlers.
+      style={{ touchAction: "pan-y" }}
+      {...dragHandlers}
     >
       {showPinned && memoData.pinned && <MemoPinnedMark />}
       <MemoHeader timeDisplay={timeDisplay} showCreator={showCreator} showVisibility={showVisibility} showSpace={showSpace} />

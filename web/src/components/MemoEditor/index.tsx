@@ -382,7 +382,13 @@ const MemoEditorImpl: React.FC<MemoEditorProps> = ({
         )}
 
         {/* Editor content grows to fill available space in focus mode */}
-        <EditorContent ref={editorRef} placeholder={placeholder} onSubmit={handleSave} onFiles={handleEditorFiles} />
+        <EditorContent
+          ref={editorRef}
+          placeholder={placeholder}
+          onSubmit={handleSave}
+          onEscape={onCancel ? handleCancel : undefined}
+          onFiles={handleEditorFiles}
+        />
 
         {isAudioRecorderOpen && (audioRecorder.isBusy || isTranscribingAudio) && (
           <AudioRecorderPanel

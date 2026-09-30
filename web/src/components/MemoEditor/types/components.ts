@@ -51,6 +51,8 @@ export interface EditorContentProps {
   placeholder?: string;
   /** Invoked by the in-editor save shortcut (Cmd/Ctrl+Enter). */
   onSubmit: () => void;
+  /** Invoked when Escape is pressed; omit to have Escape only blur the editor. */
+  onEscape?: () => void;
   onFiles: (files: File[], origin: EditorFileOrigin) => void;
 }
 
