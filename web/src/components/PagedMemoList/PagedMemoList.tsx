@@ -1,5 +1,5 @@
 import { ArrowUpIcon, LoaderCircleIcon } from "lucide-react";
-import { type ReactElement, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactElement, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MentionResolutionProvider } from "@/components/MemoContent/MentionResolutionContext";
 import { Button } from "@/components/ui/button";
 import { useAppSidebar } from "@/contexts/AppSidebarContext";
@@ -31,6 +31,21 @@ export const getMemoKey = (memo: Memo) => memo.name;
 // grid centers in the leftover space instead of filling it.
 const MAX_COLUMN_WIDTH = 420;
 
+/**
+ * Key of the first memo that follows a leading run of pinned memos, or undefined when there is no
+ * such run or nothing below it. The pinned run is optionally preceded by a just-created memo that
+ * was hoisted above the pins. Pure so the grid and flow layouts share one rule.
+ */
+export const getPinnedSectionBreakKey = (memos: Memo[], options: { skipKey?: string } = {}): string | undefined => {
+  let index = options.skipKey && memos[0] && getMemoKey(memos[0]) === options.skipKey ? 1 : 0;
+  const pinnedStart = index;
+  while (index < memos.length && memos[index].pinned) index++;
+  if (index === pinnedStart || index >= memos.length) return undefined;
+  return getMemoKey(memos[index]);
+};
+
+const PinnedSeparator = () => <div role="separator" aria-orientation="horizontal" className="w-full border-t border-border/60" />;
+
 const Loader = () => (
   <div className="w-full flex flex-row justify-center items-center py-8">
     <LoaderCircleIcon className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -46,6 +61,8 @@ interface Props {
   contextFilter?: string;
   pageSize?: number;
   showCreator?: boolean;
+  /** The list is ordered pinned-first: draw a separator between the pinned run and the rest. */
+  pinnedFirst?: boolean;
   enabled?: boolean;
   /** Route-owned content rendered before the list and inside column one in grid mode. */
   renderLeading?: (options: { useGrid: boolean }) => ReactNode;
@@ -215,6 +232,8 @@ const PagedMemoList = (props: Props) => {
   const firstMemo = displayMemoList[0];
   const priorityKey = newMemoName && firstMemo?.name === newMemoName ? getMemoKey(firstMemo) : undefined;
 
+  const sectionBreakKey = props.pinnedFirst ? getPinnedSectionBreakKey(displayMemoList, { skipKey: priorityKey }) : undefined;
+
   // Stable reference so MentionResolutionProvider's memo (keyed on the array) actually holds.
   const contents = useMemo(() => displayMemoList.map((memo) => memo.content), [displayMemoList]);
   const userNames = useMemo(
@@ -292,6 +311,8 @@ const PagedMemoList = (props: Props) => {
                   priorityKey={priorityKey}
                   maxColumns={maxColumns}
                   maxColumnWidth={MAX_COLUMN_WIDTH}
+                  sectionBreakKey={sectionBreakKey}
+                  separator={<PinnedSeparator />}
                 />
               </ColumnGridUntrappedProvider>
               {!isDisplayPending && footer}
@@ -303,7 +324,18 @@ const PagedMemoList = (props: Props) => {
               <MemoFilters className="mb-2" />
               {initialLoader}
               {initialError}
-              {displayMemoList.map((memo) => props.renderer(memo, { compact: effectiveCompact }))}
+              {displayMemoList.map((memo) =>
+                getMemoKey(memo) === sectionBreakKey ? (
+                  <Fragment key={getMemoKey(memo)}>
+                    <div className="mb-2">
+                      <PinnedSeparator />
+                    </div>
+                    {props.renderer(memo, { compact: effectiveCompact })}
+                  </Fragment>
+                ) : (
+                  props.renderer(memo, { compact: effectiveCompact })
+                ),
+              )}
               {emptyPlaceholder}
               {!isDisplayPending && footer}
             </>

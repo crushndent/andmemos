@@ -319,4 +319,46 @@ describe("<PagedMemoList>", () => {
       }
     });
   });
+  describe("pinned separator", () => {
+    const pinned = (name: string, isPinned: boolean) => ({ name, content: name, pinned: isPinned }) as unknown as Memo;
+    const renderPinned = (pinnedFirst: boolean) =>
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <PagedMemoList
+            pinnedFirst={pinnedFirst}
+            renderer={(m) => (
+              <div data-testid="memo" key={m.name}>
+                {m.name}
+              </div>
+            )}
+          />
+        </QueryClientProvider>,
+      );
+
+    it("draws one separator between the pinned run and the rest in the single-column list", () => {
+      feed.memos = [pinned("memos/1", true), pinned("memos/2", true), pinned("memos/3", false)];
+      renderPinned(true);
+
+      const separator = screen.getByRole("separator");
+      const items = screen.getAllByTestId("memo");
+      expect(items).toHaveLength(3);
+      // After the last pinned memo, before the first unpinned one.
+      expect(items[1].compareDocumentPosition(separator) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(separator.compareDocumentPosition(items[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("draws no separator when the feed is not pinned-first (e.g. Explore)", () => {
+      feed.memos = [pinned("memos/1", true), pinned("memos/2", false)];
+      renderPinned(false);
+
+      expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    });
+
+    it("draws no separator when nothing is pinned", () => {
+      feed.memos = [pinned("memos/1", false), pinned("memos/2", false)];
+      renderPinned(true);
+
+      expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    });
+  });
 });

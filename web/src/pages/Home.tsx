@@ -59,6 +59,7 @@ const Home = () => {
             />
           )}
           listSort={listSort}
+          pinnedFirst={honorPinned}
           orderBy={orderBy}
           filter={memoFilter}
           contextFilter={contextFilter}
