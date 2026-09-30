@@ -14,9 +14,9 @@ describe("ViewContext maxColumns setting", () => {
     localStorage.clear();
   });
 
-  it("defaults to a single column", () => {
+  it("defaults to a Keep-style multi-column grid (as many columns as fit)", () => {
     const { result } = renderHook(() => useView(), { wrapper });
-    expect(result.current.maxColumns).toBe(1);
+    expect(result.current.maxColumns).toBe(0);
   });
 
   it("updates and persists the column ceiling", () => {
@@ -45,11 +45,47 @@ describe("ViewContext maxColumns setting", () => {
     expect(result.current.maxColumns).toBe(2);
   });
 
-  it("falls back to a single column for an invalid persisted value", () => {
+  it("falls back to the multi-column default for an invalid persisted value", () => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ maxColumns: 7 }));
 
     const { result } = renderHook(() => useView(), { wrapper });
 
-    expect(result.current.maxColumns).toBe(1);
+    expect(result.current.maxColumns).toBe(0);
+  });
+});
+
+describe("ViewContext cardFont setting", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("defaults to sans and marks the document root", () => {
+    const { result } = renderHook(() => useView(), { wrapper });
+    expect(result.current.cardFont).toBe("sans");
+    expect(document.documentElement.dataset.cardFont).toBe("sans");
+  });
+
+  it("updates, persists, and applies the root attribute", () => {
+    const { result } = renderHook(() => useView(), { wrapper });
+
+    act(() => result.current.setCardFont("serif"));
+
+    expect(result.current.cardFont).toBe("serif");
+    expect(persisted().cardFont).toBe("serif");
+    expect(document.documentElement.dataset.cardFont).toBe("serif");
+  });
+
+  it("restores a persisted font and rejects invalid values", () => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ cardFont: "mono" }));
+    expect(renderHook(() => useView(), { wrapper }).result.current.cardFont).toBe("mono");
+
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ cardFont: "comic" }));
+    expect(renderHook(() => useView(), { wrapper }).result.current.cardFont).toBe("sans");
+  });
+
+  it("clears the root attribute on unmount", () => {
+    const { unmount } = renderHook(() => useView(), { wrapper });
+    unmount();
+    expect(document.documentElement.dataset.cardFont).toBeUndefined();
   });
 });

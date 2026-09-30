@@ -345,6 +345,10 @@
       "has-task-list": "Har gjeremålsliste"
     },
     "grid-compact-hint": "Rutenett nyttar alltid kompakte kort.",
+    "card-font": "Card font",
+    "font-mono": "Monospace",
+    "font-sans": "Sans-serif",
+    "font-serif": "Serif",
     "layout": "Oppsett",
     "layout-auto": "Automatisk",
     "layout-auto-description": "Så mange kolonnar som skjermen har plass til",

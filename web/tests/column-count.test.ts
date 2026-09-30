@@ -24,4 +24,8 @@ describe("columnCountForWidth", () => {
     expect(columnCountForWidth(1152)).toBe(4);
     expect(columnCountForWidth(1600)).toBe(5);
   });
+
+  it("uses many columns on a wide desktop so notes fill the width", () => {
+    expect(columnCountForWidth(1600)).toBeGreaterThanOrEqual(5);
+  });
 });

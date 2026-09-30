@@ -65,3 +65,12 @@
     outline-offset: 1px;
   }
 }
+
+/* Card font preference (View options). Set on <html> by ViewProvider; sans is the app default. */
+html[data-card-font="serif"] [data-memo-content] {
+  font-family: var(--font-serif);
+}
+
+html[data-card-font="mono"] [data-memo-content] {
+  font-family: var(--font-mono);
+}
