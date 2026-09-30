@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { MemoMarkdownRenderer } from "@/components/MemoContent/MemoMarkdownRenderer";
 import { buildEditorExtensions } from "@/components/MemoEditor/Editor/extensions";
 
-function makeView(doc: string, onSubmit: () => void = () => {}) {
+function makeView(doc: string, onSubmit: () => void = () => {}, onEscape?: () => void) {
   return new EditorView({
     state: EditorState.create({
       doc,
@@ -16,6 +16,7 @@ function makeView(doc: string, onSubmit: () => void = () => {}) {
         onFiles: () => {},
         onUpdate: () => {},
         onSubmit,
+        onEscape,
         getTags: () => [],
       }),
     }),
@@ -128,6 +129,22 @@ describe("editor key bindings", () => {
     expect(view.hasFocus).toBe(true);
     press(view, "Escape");
     expect(view.hasFocus).toBe(false);
+    view.destroy();
+  });
+
+  it("Escape calls onEscape (exits editing) instead of only blurring when the host provides it", () => {
+    let escaped = 0;
+    const view = makeView(
+      "x",
+      () => {},
+      () => {
+        escaped += 1;
+      },
+    );
+    view.focus();
+    press(view, "Escape");
+    expect(escaped).toBe(1);
+    expect(view.state.doc.toString()).toBe("x");
     view.destroy();
   });
 
