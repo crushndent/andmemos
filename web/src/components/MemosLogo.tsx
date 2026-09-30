@@ -21,7 +21,9 @@ const COMPACT_SCALE = {
 function MemosLogo(props: Props) {
   const { collapsed, compact, size = "md" } = props;
   const scale = COMPACT_SCALE[size];
-  const { generalSetting: instanceGeneralSetting } = useInstance();
+  const { generalSetting: instanceGeneralSetting, profile } = useInstance();
+  // Fork builds are stamped "<branch>@<sha>" at image build time; official releases never contain "@".
+  const forkBuild = profile.version.includes("@") ? profile.version : "";
   const title = instanceGeneralSetting.customProfile?.title || "Memos";
   const avatarUrl = instanceGeneralSetting.customProfile?.logoUrl || "/full-logo.webp";
 
@@ -43,6 +45,14 @@ function MemosLogo(props: Props) {
             )}
           >
             {title}
+          </span>
+        )}
+        {!collapsed && forkBuild && (
+          <span
+            title={`Fork build ${forkBuild}`}
+            className="min-w-0 shrink-[3] truncate rounded bg-primary/10 px-1.5 font-mono text-[10px] leading-4 text-primary"
+          >
+            {forkBuild}
           </span>
         )}
       </div>
