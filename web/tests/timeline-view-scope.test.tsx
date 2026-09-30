@@ -5,7 +5,7 @@ import { TimelineViewProvider, useLinkPreviewEnabled, useView } from "@/contexts
 
 const storageKey = "memos-view-setting";
 const saved = { timeBasis: "update_time", orderByTimeAsc: true, maxColumns: 3, compactMode: true, linkPreview: false };
-const defaults = { timeBasis: "create_time", orderByTimeAsc: false, maxColumns: 1, compactMode: false, linkPreview: true };
+const defaults = { timeBasis: "create_time", orderByTimeAsc: false, maxColumns: 0, compactMode: false, linkPreview: true };
 
 function Probe() {
   const { timeBasis, orderByTimeAsc, maxColumns, compactMode } = useView();

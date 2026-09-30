@@ -35,6 +35,21 @@ vi.mock("@/utils/i18n", () => ({
 describe("MemoDisplaySettingMenu", () => {
   beforeEach(() => {
     localStorage.clear();
+    // The default layout is now the multi-column grid; these tests start from the single-column list.
+    localStorage.setItem("memos-view-setting", JSON.stringify({ maxColumns: 1 }));
+  });
+
+  it("defaults to the Auto (as many columns as fit) layout", () => {
+    localStorage.clear();
+    render(
+      <ViewProvider>
+        <MemoDisplaySettingMenu />
+      </ViewProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Timeline · View options" }));
+
+    expect(screen.getByRole("switch", { name: "Compact mode" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("opens from an accessible trigger and explains the compact grid constraint", () => {

@@ -14,9 +14,9 @@ describe("ViewContext maxColumns setting", () => {
     localStorage.clear();
   });
 
-  it("defaults to a single column", () => {
+  it("defaults to a Keep-style multi-column grid (as many columns as fit)", () => {
     const { result } = renderHook(() => useView(), { wrapper });
-    expect(result.current.maxColumns).toBe(1);
+    expect(result.current.maxColumns).toBe(0);
   });
 
   it("updates and persists the column ceiling", () => {
@@ -45,11 +45,11 @@ describe("ViewContext maxColumns setting", () => {
     expect(result.current.maxColumns).toBe(2);
   });
 
-  it("falls back to a single column for an invalid persisted value", () => {
+  it("falls back to the multi-column default for an invalid persisted value", () => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ maxColumns: 7 }));
 
     const { result } = renderHook(() => useView(), { wrapper });
 
-    expect(result.current.maxColumns).toBe(1);
+    expect(result.current.maxColumns).toBe(0);
   });
 });
