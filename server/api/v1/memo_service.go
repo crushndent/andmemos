@@ -423,6 +423,25 @@ func (s *APIV1Service) UpdateMemo(ctx context.Context, request *v1pb.UpdateMemoR
 			}
 			nextMemo.Payload.Location = convertLocationToStore(request.Memo.Location)
 			update.Payload = nextMemo.Payload
+		} else if path == "due_time" {
+			if nextMemo.Payload == nil {
+				nextMemo.Payload = &storepb.MemoPayload{}
+			}
+			if request.Memo.DueTime != nil && !request.Memo.DueTime.IsValid() {
+				return nil, status.Errorf(codes.InvalidArgument, "due_time is invalid")
+			}
+			nextMemo.Payload.DueTime = request.Memo.DueTime
+			update.Payload = nextMemo.Payload
+		} else if path == "board_positions" {
+			if nextMemo.Payload == nil {
+				nextMemo.Payload = &storepb.MemoPayload{}
+			}
+			positions, err := validateBoardPositions(request.Memo.BoardPositions)
+			if err != nil {
+				return nil, err
+			}
+			nextMemo.Payload.BoardPositions = positions
+			update.Payload = nextMemo.Payload
 		} else if path == "attachments" {
 			attachmentsUpdated = true
 		} else if path == "relations" {

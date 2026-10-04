@@ -7,6 +7,7 @@ import {
   FileAudioIcon,
   FileTextIcon,
   ImageIcon,
+  KanbanIcon,
   LibraryIcon,
   ListIcon,
   type LucideIcon,
@@ -263,7 +264,7 @@ const RouteSidebarContent = () => {
   if (kind === "inbox") return <InboxSidebarContent />;
   if (kind === "settings") return <SettingsSidebarContent />;
   if (kind === "memo") return <MemoDetailSidebarContent />;
-  if (kind === "common") return <CommonSidebarContent />;
+  if (kind === "common" || kind === "boards") return <CommonSidebarContent />;
   return null;
 };
 
@@ -271,6 +272,7 @@ const RouteSidebarContent = () => {
 const NAV_DESTINATIONS = [
   { kind: "calendar", labelKey: "common.calendar", pathname: ROUTES.CALENDAR, icon: CalendarDaysIcon, signedInOnly: false },
   { kind: "map", labelKey: "common.map", pathname: ROUTES.MAP, icon: MapIcon, signedInOnly: false },
+  { kind: "boards", labelKey: "common.boards", pathname: ROUTES.BOARDS, icon: KanbanIcon, signedInOnly: true },
   { kind: "attachments", labelKey: "common.attachments", pathname: ROUTES.ATTACHMENTS, icon: PaperclipIcon, signedInOnly: true },
 ] as const;
 

@@ -58,6 +58,7 @@
     "basic": "Allgemeines",
     "browse": "Durchsuchen",
     "calendar": "Kalender",
+    "boards": "Boards",
     "cancel": "Abbrechen",
     "clear": "Leeren",
     "close": "Schließen",
@@ -968,6 +969,21 @@
     "new-here": "Hier schreiben",
     "saved-outside-filter": "Gespeichert. Diese Notiz liegt außerhalb der aktuellen Kartenergebnisse.",
     "open-memo": "Memo öffnen"
+  },
+  "board": {
+    "add-card": "Add a card",
+    "add-list": "Add list",
+    "card-description": "Card on the {{board}} board",
+    "card-placeholder": "Enter a title for this card…",
+    "clear-due-date": "Clear due date",
+    "due-date": "Due date",
+    "empty-hint": "No boards yet. Name a board above, or tag a memo like #board/work/todo.",
+    "list-name-placeholder": "List name",
+    "move-list-left": "Move list left",
+    "move-list-right": "Move list right",
+    "new-board": "New board",
+    "new-board-placeholder": "New board name",
+    "title": "Boards"
   },
   "calendar": {
     "new-memo-on-day": "Neue Notiz an diesem Tag",

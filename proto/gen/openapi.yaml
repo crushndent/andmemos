@@ -4213,6 +4213,19 @@ components:
                     description: |-
                         Optional. The space in which this memo is placed. Format: spaces/{space}.
                          Every memo, including a comment, owns its placement independently.
+                dueTime:
+                    type: string
+                    description: Optional. The due date of the memo, used when it is a board card (tagged #board/...).
+                    format: date-time
+                boardPositions:
+                    type: object
+                    additionalProperties:
+                        type: number
+                        format: double
+                    description: |-
+                        Optional. The position of the memo as a card on each board it is tagged into, keyed by
+                         board name. Lower values sort first. Set by drag and drop; clients choose a value
+                         between the neighbouring cards.
         MemoImportIssue:
             type: object
             properties:

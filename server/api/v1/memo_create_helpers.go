@@ -75,6 +75,19 @@ func (s *APIV1Service) prepareMemoCreate(ctx context.Context, user *store.User, 
 	if input.Location != nil {
 		memo.Payload.Location = convertLocationToStore(input.Location)
 	}
+	if input.DueTime != nil {
+		if !input.DueTime.IsValid() {
+			return nil, status.Error(codes.InvalidArgument, "due_time is invalid")
+		}
+		memo.Payload.DueTime = input.DueTime
+	}
+	if len(input.BoardPositions) > 0 {
+		positions, err := validateBoardPositions(input.BoardPositions)
+		if err != nil {
+			return nil, err
+		}
+		memo.Payload.BoardPositions = positions
+	}
 
 	attachments, err := s.prepareMemoAttachments(ctx, user, memo, input.Attachments)
 	if err != nil {

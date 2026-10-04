@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package memos.store;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "gen/store";
 
 message MemoPayload {
@@ -10,6 +12,13 @@ message MemoPayload {
   Location location = 2;
 
   repeated string tags = 3;
+
+  // Optional due date, used when the memo is a board card.
+  google.protobuf.Timestamp due_time = 4;
+
+  // Position of this memo as a card in each board it is tagged into, keyed by board name.
+  // Lower sorts first. Maintained by drag and drop, never typed by hand.
+  map<string, double> board_positions = 5;
 
   // The calculated properties from the memo content.
   message Property {

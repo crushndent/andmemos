@@ -25,6 +25,7 @@ const PermissionDenied = lazyWithReload(() => import("@/pages/PermissionDenied")
 const Attachments = lazyWithReload(() => import("@/pages/Attachments"));
 const Setting = lazyWithReload(() => import("@/pages/Setting"));
 const MemoViews = lazyWithReload(() => import("@/pages/MemoViews"));
+const Boards = lazyWithReload(() => import("@/pages/Boards"));
 const SignIn = lazyWithReload(() => import("@/pages/SignIn"));
 const SignUp = lazyWithReload(() => import("@/pages/SignUp"));
 
@@ -104,6 +105,7 @@ export const routeConfig: RouteObject[] = [
                 element: <RequireAuthRoute />,
                 children: [
                   { path: Routes.ARCHIVED, element: <Archived /> },
+                  { path: `${Routes.BOARDS}/:board?`, element: <Boards /> },
                   {
                     element: <RequireFullInitializationRoute />,
                     children: [{ path: Routes.VIEWS, element: <MemoViews /> }],

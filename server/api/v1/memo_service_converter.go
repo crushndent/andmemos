@@ -64,6 +64,8 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 		memoMessage.Tags = memo.Payload.Tags
 		memoMessage.Property = convertMemoPropertyFromStore(memo.Payload.Property)
 		memoMessage.Location = convertLocationFromStore(memo.Payload.Location)
+		memoMessage.DueTime = memo.Payload.DueTime
+		memoMessage.BoardPositions = memo.Payload.BoardPositions
 	}
 
 	// Parent identity is part of a readable comment's context. It grants no

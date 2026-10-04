@@ -9,6 +9,7 @@ package store
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -22,12 +23,17 @@ const (
 )
 
 type MemoPayload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Property      *MemoPayload_Property  `protobuf:"bytes,1,opt,name=property,proto3" json:"property,omitempty"`
-	Location      *MemoPayload_Location  `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
-	Tags          []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Property *MemoPayload_Property  `protobuf:"bytes,1,opt,name=property,proto3" json:"property,omitempty"`
+	Location *MemoPayload_Location  `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
+	Tags     []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
+	// Optional due date, used when the memo is a board card.
+	DueTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=due_time,json=dueTime,proto3" json:"due_time,omitempty"`
+	// Position of this memo as a card in each board it is tagged into, keyed by board name.
+	// Lower sorts first. Maintained by drag and drop, never typed by hand.
+	BoardPositions map[string]float64 `protobuf:"bytes,5,rep,name=board_positions,json=boardPositions,proto3" json:"board_positions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *MemoPayload) Reset() {
@@ -81,6 +87,20 @@ func (x *MemoPayload) GetTags() []string {
 	return nil
 }
 
+func (x *MemoPayload) GetDueTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DueTime
+	}
+	return nil
+}
+
+func (x *MemoPayload) GetBoardPositions() map[string]float64 {
+	if x != nil {
+		return x.BoardPositions
+	}
+	return nil
+}
+
 // The calculated properties from the memo content.
 type MemoPayload_Property struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
@@ -96,7 +116,7 @@ type MemoPayload_Property struct {
 
 func (x *MemoPayload_Property) Reset() {
 	*x = MemoPayload_Property{}
-	mi := &file_store_memo_proto_msgTypes[1]
+	mi := &file_store_memo_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -108,7 +128,7 @@ func (x *MemoPayload_Property) String() string {
 func (*MemoPayload_Property) ProtoMessage() {}
 
 func (x *MemoPayload_Property) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[1]
+	mi := &file_store_memo_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -121,7 +141,7 @@ func (x *MemoPayload_Property) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoPayload_Property.ProtoReflect.Descriptor instead.
 func (*MemoPayload_Property) Descriptor() ([]byte, []int) {
-	return file_store_memo_proto_rawDescGZIP(), []int{0, 0}
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 1}
 }
 
 func (x *MemoPayload_Property) GetHasLink() bool {
@@ -170,7 +190,7 @@ type MemoPayload_Location struct {
 
 func (x *MemoPayload_Location) Reset() {
 	*x = MemoPayload_Location{}
-	mi := &file_store_memo_proto_msgTypes[2]
+	mi := &file_store_memo_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -182,7 +202,7 @@ func (x *MemoPayload_Location) String() string {
 func (*MemoPayload_Location) ProtoMessage() {}
 
 func (x *MemoPayload_Location) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[2]
+	mi := &file_store_memo_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -195,7 +215,7 @@ func (x *MemoPayload_Location) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoPayload_Location.ProtoReflect.Descriptor instead.
 func (*MemoPayload_Location) Descriptor() ([]byte, []int) {
-	return file_store_memo_proto_rawDescGZIP(), []int{0, 1}
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 2}
 }
 
 func (x *MemoPayload_Location) GetPlaceholder() string {
@@ -223,11 +243,16 @@ var File_store_memo_proto protoreflect.FileDescriptor
 
 const file_store_memo_proto_rawDesc = "" +
 	"\n" +
-	"\x10store/memo.proto\x12\vmemos.store\"\xb6\x03\n" +
+	"\x10store/memo.proto\x12\vmemos.store\x1a\x1fgoogle/protobuf/timestamp.proto\"\x87\x05\n" +
 	"\vMemoPayload\x12=\n" +
 	"\bproperty\x18\x01 \x01(\v2!.memos.store.MemoPayload.PropertyR\bproperty\x12=\n" +
 	"\blocation\x18\x02 \x01(\v2!.memos.store.MemoPayload.LocationR\blocation\x12\x12\n" +
-	"\x04tags\x18\x03 \x03(\tR\x04tags\x1a\xac\x01\n" +
+	"\x04tags\x18\x03 \x03(\tR\x04tags\x125\n" +
+	"\bdue_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\adueTime\x12U\n" +
+	"\x0fboard_positions\x18\x05 \x03(\v2,.memos.store.MemoPayload.BoardPositionsEntryR\x0eboardPositions\x1aA\n" +
+	"\x13BoardPositionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\x1a\xac\x01\n" +
 	"\bProperty\x12\x19\n" +
 	"\bhas_link\x18\x01 \x01(\bR\ahasLink\x12\"\n" +
 	"\rhas_task_list\x18\x02 \x01(\bR\vhasTaskList\x12\x19\n" +
@@ -252,20 +277,24 @@ func file_store_memo_proto_rawDescGZIP() []byte {
 	return file_store_memo_proto_rawDescData
 }
 
-var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_store_memo_proto_goTypes = []any{
-	(*MemoPayload)(nil),          // 0: memos.store.MemoPayload
-	(*MemoPayload_Property)(nil), // 1: memos.store.MemoPayload.Property
-	(*MemoPayload_Location)(nil), // 2: memos.store.MemoPayload.Location
+	(*MemoPayload)(nil),           // 0: memos.store.MemoPayload
+	nil,                           // 1: memos.store.MemoPayload.BoardPositionsEntry
+	(*MemoPayload_Property)(nil),  // 2: memos.store.MemoPayload.Property
+	(*MemoPayload_Location)(nil),  // 3: memos.store.MemoPayload.Location
+	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
 }
 var file_store_memo_proto_depIdxs = []int32{
-	1, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
-	2, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	2, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
+	3, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
+	4, // 2: memos.store.MemoPayload.due_time:type_name -> google.protobuf.Timestamp
+	1, // 3: memos.store.MemoPayload.board_positions:type_name -> memos.store.MemoPayload.BoardPositionsEntry
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_store_memo_proto_init() }
@@ -279,7 +308,7 @@ func file_store_memo_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_store_memo_proto_rawDesc), len(file_store_memo_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
