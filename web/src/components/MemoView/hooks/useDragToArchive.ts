@@ -9,6 +9,12 @@ export const ARCHIVE_DRAG_MIN_DISTANCE_PX = 96;
 /** Releasing the pointer this close to the window's left border archives regardless of distance. */
 export const ARCHIVE_EDGE_ZONE_PX = 24;
 
+let lastDragEndedAt = 0;
+const CLICK_AFTER_DRAG_MS = 400;
+
+/** True just after a card drag ended, so the click the browser sends on release is not mistaken for a deliberate click. */
+export const wasRecentlyDragged = (): boolean => Date.now() - lastDragEndedAt < CLICK_AFTER_DRAG_MS;
+
 const INTERACTIVE_SELECTOR = "a, button, input, textarea, select, video, audio, [role='button'], [contenteditable='true']";
 
 interface ArchiveReleaseInput {
@@ -109,6 +115,7 @@ export const useDragToArchive = ({ cardRef, enabled, onArchive }: UseDragToArchi
       stateRef.current = null;
       if (!card || !state.dragging) return;
 
+      lastDragEndedAt = Date.now();
       card.releasePointerCapture?.(event.pointerId);
       // The release ends a drag, not a click: swallow the click the browser may still dispatch.
       const swallow = (clickEvent: Event) => clickEvent.stopPropagation();

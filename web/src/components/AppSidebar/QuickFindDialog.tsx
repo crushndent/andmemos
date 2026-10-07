@@ -1,4 +1,4 @@
-import { CornerDownLeftIcon, SearchIcon } from "lucide-react";
+import { CornerDownLeftIcon, RegexIcon, SearchIcon } from "lucide-react";
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useEffect, useId, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,17 +12,19 @@ import { useSpaceContext } from "@/contexts/SpaceContext";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useMemoViews } from "@/hooks/useUserQueries";
 import { getMemoViewId, isMemoCollectionRoute } from "@/lib/memo-views";
+import { checkRegexPattern, type RegexIssue } from "@/lib/search";
 import { extractSpaceUidFromName, formatSpaceUidForDisplay } from "@/lib/space-display";
 import { cn } from "@/lib/utils";
 import { getCollectionCreator, withCollectionCreator } from "@/router/routes";
 import { useTranslate } from "@/utils/i18n";
 import { getRouteActionPolicy, getSidebarRouteKind } from "./routes";
 
-export type QuickFindMode = "text" | "cel";
+export type QuickFindMode = "text" | "regex" | "cel";
 
 const buildSearchFilters = (query: string, mode: QuickFindMode): MemoFilter[] => {
   const trimmed = query.trim();
   if (mode === "cel") return trimmed ? [{ factor: "celSearch", value: trimmed }] : [];
+  if (mode === "regex") return trimmed ? [{ factor: "regexSearch", value: trimmed }] : [];
   return Array.from(new Set(trimmed.split(/\s+/).filter(Boolean))).map((value) => ({ factor: "contentSearch", value }));
 };
 
@@ -40,6 +42,8 @@ export const buildQuickFindFilters = (
 export const readQuickFindQuery = (filters: MemoFilter[]): { query: string; mode: QuickFindMode } => {
   const celSearch = filters.find((filter) => filter.factor === "celSearch");
   if (celSearch) return { query: celSearch.value, mode: "cel" };
+  const regexSearch = filters.find((filter) => filter.factor === "regexSearch");
+  if (regexSearch) return { query: regexSearch.value, mode: "regex" };
   return {
     query: filters
       .filter((filter) => filter.factor === "contentSearch")
@@ -112,7 +116,12 @@ const QuickFindDialog = () => {
     setQuery(active.query);
   }, [filters, quickFindOpen]);
 
+  const regexCheck = mode === "regex" && query.trim() ? checkRegexPattern(query) : undefined;
+  const regexIssue: RegexIssue | undefined = regexCheck && !regexCheck.ok ? regexCheck.issue : undefined;
+
   const submitQuery = () => {
+    // A pattern the server would reject stays in the box with its explanation instead of failing after submit.
+    if (regexIssue) return;
     const submission = resolveQuickFindSubmission(location.pathname, query, filters, mode, location.search);
 
     if (submission.destination) {
@@ -163,7 +172,7 @@ const QuickFindDialog = () => {
               {compactScopeLabel}
             </span>
             <div role="tablist" aria-label={t("search.mode")} className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
-              {(["text", "cel"] as const).map((value) => (
+              {(["text", "regex", "cel"] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -172,12 +181,39 @@ const QuickFindDialog = () => {
                   onClick={() => setMode(value)}
                   className={cn(tabsTriggerVariants({ variant: "segmented", active: mode === value }), "h-6 px-2 py-0 text-xs")}
                 >
-                  {value === "cel" ? t("search.expression-mode") : t("search.text")}
+                  {value === "cel" ? t("search.expression-mode") : value === "regex" ? t("search.regex") : t("search.text")}
                 </button>
               ))}
             </div>
           </div>
-          {mode === "cel" ? (
+          {mode === "regex" ? (
+            <div className="space-y-2 p-4">
+              <div className="flex items-center gap-2.5">
+                <RegexIcon className="size-[17px] shrink-0 text-muted-foreground" strokeWidth={1.8} />
+                <Input
+                  {...fieldProps}
+                  className="h-10 flex-1 font-mono !text-[14px]"
+                  placeholder={t("search.regex-placeholder")}
+                  aria-label={t("search.regex")}
+                  aria-describedby={hintId}
+                  aria-invalid={regexIssue ? true : undefined}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+                <Button type="submit" size="sm" className="shrink-0" disabled={Boolean(regexIssue)}>
+                  {t("common.search")}
+                </Button>
+              </div>
+              <p
+                id={hintId}
+                role={regexIssue ? "alert" : undefined}
+                className={cn("text-xs", regexIssue ? "text-destructive" : "text-muted-foreground")}
+              >
+                {regexIssue ? t(`search.regex-issue-${regexIssue}`) : t("search.regex-hint")}
+              </p>
+            </div>
+          ) : mode === "cel" ? (
             <div className="space-y-3 p-4">
               <Textarea
                 {...fieldProps}

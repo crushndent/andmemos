@@ -10,6 +10,7 @@ import {
   LinkIcon,
   type LucideIcon,
   MapPinIcon,
+  RegexIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react";
@@ -46,6 +47,11 @@ const FILTER_CONFIGS: Record<FilterFactor, FilterConfig> = {
   contentSearch: {
     icon: SearchIcon,
     getLabel: (value) => value,
+  },
+  regexSearch: {
+    icon: RegexIcon,
+    getLabel: (value) => `/${value}/`,
+    editableQuery: true,
   },
   celSearch: {
     icon: SearchIcon,

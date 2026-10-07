@@ -36,7 +36,7 @@ describe("sidebar route content", () => {
     expect(getSidebarRouteKind(path)).toBe(kind);
   });
 
-  it.each(["/", "/explore"])("keeps search in the route collection on %s", (path) => {
+  it.each(["/", "/explore", "/boards", "/boards/work"])("keeps search in the route collection on %s", (path) => {
     expect(getRouteActionPolicy(path)).toEqual({
       searchScope: "route-collection",
     });

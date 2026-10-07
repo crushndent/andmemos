@@ -29,6 +29,8 @@ vi.mock("@/hooks/useMemoQueries", () => ({
   useUpdateMemo: () => ({ mutateAsync: update }),
   useCreateMemo: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+const filterState = vi.hoisted(() => ({ memoFilter: undefined as string | undefined }));
+vi.mock("@/hooks/useMemoFilters", () => ({ useMemoFilters: () => filterState.memoFilter }));
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
 vi.mock("@/components/MemoView", () => ({ default: ({ memo }: { memo: Memo }) => <div data-testid="memo-view">{memo.name}</div> }));
 
@@ -62,7 +64,14 @@ beforeEach(() => {
 describe("<Boards>", () => {
   it("asks only for memos that are on a board", () => {
     renderPage("/boards");
-    expect(feed.request).toMatchObject({ filter: 'tags.exists(t, t.startsWith("board/"))' });
+    expect(feed.request).toMatchObject({ filter: '(tags.exists(t, t.startsWith("board/")))' });
+  });
+
+  it("applies the current search and filters to the cards on the board", () => {
+    filterState.memoFilter = 'content.contains("bug")';
+    renderPage("/boards");
+    expect(feed.request).toMatchObject({ filter: '(tags.exists(t, t.startsWith("board/"))) && (content.contains("bug"))' });
+    filterState.memoFilter = undefined;
   });
 
   it("shows a hint when there are no boards", () => {

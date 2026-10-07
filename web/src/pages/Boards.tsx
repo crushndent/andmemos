@@ -6,8 +6,10 @@ import BoardView from "@/components/Board/BoardView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBoardLayout } from "@/hooks/useBoardLayout";
+import { useMemoFilters } from "@/hooks/useMemoFilters";
 import { useInfiniteMemos } from "@/hooks/useMemoQueries";
 import { BOARD_FILTER, type BoardCard, buildBoards, formatBoardSegment, normalizeBoardSegment } from "@/lib/board";
+import { combineCELFilters } from "@/lib/cel-filter";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/router/routes";
 import { useTranslate } from "@/utils/i18n";
@@ -23,8 +25,10 @@ const Boards = () => {
   const [openCard, setOpenCard] = useState<BoardCard | null>(null);
   const [newBoard, setNewBoard] = useState("");
 
+  // Search and filters narrow the cards on the board just as they narrow a memo list.
+  const memoFilter = useMemoFilters({ includeMemoViews: true, includePinned: true });
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage, isLoading } = useInfiniteMemos({
-    filter: BOARD_FILTER,
+    filter: combineCELFilters(BOARD_FILTER, memoFilter),
     pageSize: BOARD_PAGE_SIZE,
     orderBy: "create_time desc",
   });

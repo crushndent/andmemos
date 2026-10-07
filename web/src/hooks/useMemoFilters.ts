@@ -7,6 +7,7 @@ import { buildTimestampRangeFilter, getLocalDayTimestampRange, getTimeBasisField
 import { combineCELFilters } from "@/lib/cel-filter";
 import { getMemoViewId } from "@/lib/memo-views";
 import { buildMemoCreatorFilter, getVisibilityName } from "@/lib/resource-names";
+import { buildRegexExpression } from "@/lib/search";
 import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
 
 const escapeFilterValue = (value: string): string => JSON.stringify(value);
@@ -52,6 +53,8 @@ export const buildMemoFilter = ({
   for (const filter of filters) {
     if (filter.factor === "contentSearch") {
       conditions.push(`content.contains(${escapeFilterValue(filter.value)})`);
+    } else if (filter.factor === "regexSearch") {
+      conditions.push(buildRegexExpression(filter.value));
     } else if (filter.factor === "celSearch") {
       conditions.push(filter.value);
     } else if (filter.factor === "tagSearch") {

@@ -9,6 +9,7 @@ import AppSidebar, {
   SidebarResizeHandle,
   useSidebarWidth,
 } from "@/components/AppSidebar";
+import SearchBar from "@/components/SearchBar";
 import { AppSidebarProvider } from "@/contexts/AppSidebarContext";
 import { GlobalMemoEditorProvider } from "@/contexts/GlobalMemoEditorContext";
 import { useInstance } from "@/contexts/InstanceContext";
@@ -102,6 +103,7 @@ const RootLayoutContent = () => {
       >
         <MobileAppHeader />
         {profile.demo && <DemoBanner />}
+        <SearchBar />
         <Outlet />
       </main>
       <QuickFindDialog />

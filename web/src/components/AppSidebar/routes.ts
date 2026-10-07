@@ -43,7 +43,8 @@ export const getSidebarRouteKind = (path: string): SidebarRouteKind => {
 export const getRouteActionPolicy = (path: string, search = ""): RouteActionPolicy => {
   const kind = getSidebarRouteKind(path);
 
-  if (kind === "home" || kind === "explore") return { searchScope: "route-collection" };
+  // Boards filter their own cards in place rather than leaving for a memo list.
+  if (kind === "home" || kind === "explore" || kind === "boards") return { searchScope: "route-collection" };
   if (kind === "archived") return { searchScope: "user-collection" };
 
   // Calendar and attachments browse the route collection but are not memo lists
