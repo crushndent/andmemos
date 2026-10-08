@@ -120,6 +120,12 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
 
   useImperativeHandle(ref, () => ({ openEditor }), [openEditor]);
 
+  const { onEditorOpenChange } = props;
+  const editorOpen = showEditor && EditorComponent !== undefined;
+  useEffect(() => {
+    onEditorOpenChange?.(editorOpen);
+  }, [editorOpen, onEditorOpenChange]);
+
   const isInMemoDetailPage = isMemoDetailPath(location.pathname, memoData.name);
   const showCommentPreview = !isInMemoDetailPage && computeCommentAmount(memoData) > 0;
 
@@ -262,6 +268,7 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
             onConfirm={closeEditor}
             onCancel={closeEditor}
             onFocusModeChange={handleFocusModeChange}
+            pinActionsToScreen={props.pinEditorActions}
           />
         </div>
       ) : (
