@@ -55,6 +55,7 @@ const MemoEditorImpl: React.FC<MemoEditorProps> = ({
   defaultCreateTime,
   onConfirm,
   onCancel,
+  pinActionsToScreen,
   onSavingChange,
 }) => {
   const t = useTranslate();
@@ -65,6 +66,8 @@ const MemoEditorImpl: React.FC<MemoEditorProps> = ({
   // typing (which changes content) does not re-render the editor shell and its
   // toolbar/metadata children.
   const isFocusMode = useEditorSelector((s) => s.ui.isFocusMode);
+  // Focus mode already puts the buttons at the bottom of a screen-sized frame, so only the normal view pins them.
+  const pinToScreen = Boolean(pinActionsToScreen) && !isFocusMode;
   // Report focus-mode changes so a host can react; inline hosts pass nothing.
   useEffect(() => {
     onFocusModeChange?.(isFocusMode);
@@ -402,20 +405,38 @@ const MemoEditorImpl: React.FC<MemoEditorProps> = ({
           />
         )}
 
-        {/* Metadata and toolbar grouped together at bottom */}
-        <div className="w-full flex flex-col gap-2">
-          <EditorMetadata
-            memoName={memoName}
-            uploadingLocalFileURLs={inlineImageUpload.uploadingLocalFileURLs}
-            onInsertAttachments={inlineImageUpload.insertRemoteImages}
-            onInsertLocalFiles={inlineImageUpload.insertLocalImages}
-            onTranscribeAttachment={canTranscribe ? transcribeAttachment : undefined}
-            transcribingAttachment={transcribingAttachment}
-            transcriptionDisabled={isSaving || audioRecorder.isBusy || isTranscribingAudio}
-          />
-          {!memo && !parentMemoName && isInitialized && suggestions.length > 0 && (
-            <EditorSuggestions suggestions={suggestions} controllerRef={editorRef} space={editorSpace} />
+        <EditorMetadata
+          memoName={memoName}
+          uploadingLocalFileURLs={inlineImageUpload.uploadingLocalFileURLs}
+          onInsertAttachments={inlineImageUpload.insertRemoteImages}
+          onInsertLocalFiles={inlineImageUpload.insertLocalImages}
+          onTranscribeAttachment={canTranscribe ? transcribeAttachment : undefined}
+          transcribingAttachment={transcribingAttachment}
+          transcriptionDisabled={isSaving || audioRecorder.isBusy || isTranscribingAudio}
+        />
+        {!memo && !parentMemoName && isInitialized && suggestions.length > 0 && (
+          <EditorSuggestions suggestions={suggestions} controllerRef={editorRef} space={editorSpace} />
+        )}
+
+        {/* The button row (insert, audience, Cancel, Update) never scrolls out of reach. By default it
+            sticks to the bottom of the screen while the editor extends past it: it spans the card (-mx/-mb
+            cancel the card's padding) so nothing shows beside or under it when stuck, and a fade above it
+            softens where the content slides beneath. On a memo's own page it is pinned to the bottom of the
+            screen instead, in the same place as the viewing actions. It must be a direct child of the card:
+            "sticky" cannot leave its parent. */}
+        <div
+          data-slot="editor-actions"
+          data-pinned={pinToScreen}
+          className={cn(
+            "bg-card",
+            pinToScreen
+              ? "fixed bottom-2 left-1/2 z-30 w-[min(42rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl border border-border/70 bg-background/95 p-2 shadow-lg backdrop-blur-md md:left-[calc(50%+var(--app-sidebar-width,0px)/2)] md:w-[min(42rem,calc(100vw-var(--app-sidebar-width,0px)-1rem))]"
+              : cn(
+                  "sticky bottom-0 z-10 -mx-4 -mb-3 w-[calc(100%+2rem)] rounded-b-lg px-4 pb-3",
+                  "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-linear-to-t before:from-card before:to-transparent",
+                ),
           )}
+        >
           <EditorToolbar
             onSave={handleSave}
             onCancel={onCancel ? handleCancel : undefined}

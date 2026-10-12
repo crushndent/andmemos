@@ -34,6 +34,7 @@ const dynamicKeyParts: Record<string, readonly string[]> = {
   "live-update.${}": ["connected", "connecting", "disconnected"],
   "memo.${}": ["layout-auto", "layout-columns", "layout-list"],
   "memo.${}-description": ["layout-auto", "layout-columns", "layout-list"],
+  "search.regex-issue-${}": ["backreference", "empty", "invalid", "lookaround", "too-long"],
   "setting.notification.requirement-${}": ["gmail", "optional", "recommended", "required"],
   "space.icon.${}": ["emoji", "icons"],
 };

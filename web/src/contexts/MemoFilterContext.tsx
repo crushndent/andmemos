@@ -6,6 +6,7 @@ export type FilterFactor =
   | "tagSearch"
   | "visibility"
   | "contentSearch"
+  | "regexSearch"
   | "celSearch"
   | "displayTime"
   | "pinned"
@@ -48,8 +49,9 @@ export const getFilterSearch = (filters: MemoFilter[]): string => {
   return filterQuery ? `?${new URLSearchParams({ filter: filterQuery })}` : "";
 };
 
-/** Search filters carry the user's query itself (plain words or a CEL expression), as opposed to facets. */
-export const isSearchFilter = (filter: MemoFilter): boolean => filter.factor === "contentSearch" || filter.factor === "celSearch";
+/** Search filters carry the user's query itself (plain words, a regular expression or a CEL expression), as opposed to facets. */
+export const isSearchFilter = (filter: MemoFilter): boolean =>
+  filter.factor === "contentSearch" || filter.factor === "regexSearch" || filter.factor === "celSearch";
 
 export const replaceFiltersByFactor = (filters: MemoFilter[], factor: FilterFactor, replacements: MemoFilter[]): MemoFilter[] => [
   ...filters.filter((filter) => filter.factor !== factor),

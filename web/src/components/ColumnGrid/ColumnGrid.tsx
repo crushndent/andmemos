@@ -20,8 +20,17 @@ interface ColumnGridProps<T> {
   maxColumns?: number;
   /** Cap on each column's width in px; leftover space centers the grid. */
   maxColumnWidth?: number;
+  /**
+   * Key of the first item of a second section (e.g. the first unpinned memo). Items before it
+   * are packed as one block; `separator` is then laid across the full width and the remaining
+   * items are packed into fresh columns beneath it, so the sections never interleave.
+   */
+  sectionBreakKey?: string;
+  /** Node spanning the packed columns between the two sections. */
+  separator?: ReactNode;
 }
 
+const SEPARATOR_KEY = "__grid_separator__";
 const LEADING_KEY = "__grid_leading__";
 const HEADER_KEY = "__grid_header__";
 
@@ -85,6 +94,8 @@ function ColumnGrid<T>({
   priorityKey,
   maxColumns,
   maxColumnWidth,
+  sectionBreakKey,
+  separator,
 }: ColumnGridProps<T>) {
   const direction = useDirection();
   const { untrappedKeys } = useColumnGridUntrapped();
@@ -120,6 +131,13 @@ function ColumnGrid<T>({
     if (headerEl) {
       headerEl.style.width = `${packedWidth}px`;
       headerEl.style.left = `${offsetX}px`;
+    }
+
+    // The separator spans the packed columns like the header; it only exists with a break.
+    const separatorEl = separator != null && sectionBreakKey ? itemRefs.current.get(SEPARATOR_KEY) : undefined;
+    if (separatorEl) {
+      separatorEl.style.width = `${packedWidth}px`;
+      separatorEl.style.left = `${offsetX}px`;
     }
 
     // Ordered by feed position: the leading tile (composer) first, then items.
@@ -164,25 +182,48 @@ function ColumnGrid<T>({
     if (priorityKey) {
       pinnedKeys.add(priorityKey);
     }
-    const columnOf = assignColumnsByEstimatedHeight({
-      keys: ordered.map((entry) => entry.key),
-      columnCount: count,
-      pinnedKeys,
-      getEstimatedHeight: (key) => {
-        const item = itemByKey.get(key);
-        return item && estimateHeight ? estimateHeight(item, { columnWidth }) : heightOf(key);
-      },
-    });
+    const estimatedHeightOf = (key: string) => {
+      const item = itemByKey.get(key);
+      return item && estimateHeight ? estimateHeight(item, { columnWidth }) : heightOf(key);
+    };
+
+    // Split into the section above the break and the one below it; without a break (or a
+    // separator to draw) everything is a single section, exactly as before.
+    const breakIndex = separatorEl && sectionBreakKey ? ordered.findIndex((entry) => entry.key === sectionBreakKey) : -1;
+    const sections = breakIndex > 0 ? [ordered.slice(0, breakIndex), ordered.slice(breakIndex)] : [ordered];
 
     const columnY = new Array<number>(count).fill(columnStartY);
     const pos = new Map<string, { x: number; y: number }>();
-    for (const { key } of ordered) {
-      const col = columnOf.get(key) ?? 0;
-      const inlineOffset = offsetX + col * (columnWidth + GRID_GAP);
-      const x = direction === "rtl" ? width - columnWidth - inlineOffset : inlineOffset;
-      const y = columnY[col];
-      pos.set(key, { x, y });
-      columnY[col] = y + heightOf(key) + GRID_GAP;
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex > 0 && separatorEl) {
+        // Everything above must finish before the separator; both sections restart from a flat edge.
+        const separatorY = Math.max(...columnY);
+        pos.set(SEPARATOR_KEY, { x: offsetX, y: separatorY });
+        columnY.fill(separatorY + measure(separatorEl) + GRID_GAP);
+      }
+      const columnOf = assignColumnsByEstimatedHeight({
+        keys: section.map((entry) => entry.key),
+        columnCount: count,
+        pinnedKeys,
+        getEstimatedHeight: estimatedHeightOf,
+      });
+      for (const { key } of section) {
+        const col = columnOf.get(key) ?? 0;
+        const inlineOffset = offsetX + col * (columnWidth + GRID_GAP);
+        const x = direction === "rtl" ? width - columnWidth - inlineOffset : inlineOffset;
+        const y = columnY[col];
+        pos.set(key, { x, y });
+        columnY[col] = y + heightOf(key) + GRID_GAP;
+      }
+    });
+
+    // The separator is placed with left/top like the header (never a containing block for fixed
+    // descendants); it is not part of `ordered`, so it is positioned here.
+    if (separatorEl) {
+      const target = pos.get(SEPARATOR_KEY);
+      separatorEl.style.left = `${target?.x ?? offsetX}px`;
+      separatorEl.style.top = `${target?.y ?? 0}px`;
+      separatorEl.style.display = target ? "" : "none";
     }
 
     // Apply the chosen positions without transitions. Relayouts may be caused by late media or
@@ -212,7 +253,18 @@ function ColumnGrid<T>({
     }
 
     setContainerHeight(Math.max(0, ...columnY.map((h) => h - GRID_GAP)));
-  }, [items, getKey, estimateHeight, priorityKey, maxColumns, maxColumnWidth, direction, untrappedKeys]);
+  }, [
+    items,
+    getKey,
+    estimateHeight,
+    priorityKey,
+    maxColumns,
+    maxColumnWidth,
+    direction,
+    untrappedKeys,
+    sectionBreakKey,
+    separator != null,
+  ]);
 
   // Keep a stable reference so observer callbacks always run the latest layout.
   const relayoutRef = useRef(relayout);
@@ -294,6 +346,11 @@ function ColumnGrid<T>({
         // never a containing block for fixed descendants either.
         <div key={HEADER_KEY} ref={getItemRef(HEADER_KEY)} className="absolute top-0 left-0">
           {header}
+        </div>
+      )}
+      {separator != null && sectionBreakKey && (
+        <div key={SEPARATOR_KEY} ref={getItemRef(SEPARATOR_KEY)} className="absolute top-0 left-0">
+          {separator}
         </div>
       )}
       {leading != null && (

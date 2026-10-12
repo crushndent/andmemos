@@ -43,6 +43,8 @@ export interface MemoEditorProps {
   defaultCreateTime?: Date;
   onConfirm?: (memoName: string) => void;
   onCancel?: () => void;
+  /** Pins the button row to the bottom of the screen (the memo page), instead of the bottom of the card. */
+  pinActionsToScreen?: boolean;
   /** Reports save activity so external presentations can prevent dismissal mid-transaction. */
   onSavingChange?: (isSaving: boolean) => void;
 }

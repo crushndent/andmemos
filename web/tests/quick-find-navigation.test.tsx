@@ -9,7 +9,7 @@ import { SpaceProvider, useSpaceContext } from "@/contexts/SpaceContext";
 const state = vi.hoisted(() => ({
   currentUser: { name: "users/alice" } as { name: string } | undefined,
   spaces: [{ name: "spaces/product", title: "Product", description: "" }],
-  filters: [] as Array<{ factor: "contentSearch" | "celSearch" | "tagSearch"; value: string }>,
+  filters: [] as Array<{ factor: "contentSearch" | "regexSearch" | "celSearch" | "tagSearch"; value: string }>,
   setFilters: vi.fn(),
   setMemoView: vi.fn(),
   removeFilter: vi.fn(),
@@ -114,6 +114,54 @@ describe("Quick Find navigation", () => {
     fireEvent.keyDown(expression, { key: "Enter" });
     expect(state.setFilters).toHaveBeenCalledWith([{ factor: "celSearch", value: "pinned || has_link" }]);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("searches with a regular expression and shows it as a chip that reopens the regex box", async () => {
+    renderSearch();
+    openQuickFind();
+    await screen.findByRole("textbox");
+    fireEvent.click(screen.getByRole("tab", { name: "search.regex" }));
+    const box = screen.getByRole("textbox", { name: "search.regex" });
+    expect(box).toHaveAttribute("spellcheck", "false");
+    fireEvent.change(box, { target: { value: "^todo|invoice \\d{4}" } });
+    expect(screen.getByText("search.regex-hint")).toBeInTheDocument();
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(state.setFilters).toHaveBeenCalledWith([{ factor: "regexSearch", value: "^todo|invoice \\d{4}" }]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("explains an unusable pattern and does not submit it", async () => {
+    renderSearch();
+    openQuickFind();
+    await screen.findByRole("textbox");
+    fireEvent.click(screen.getByRole("tab", { name: "search.regex" }));
+    const box = screen.getByRole("textbox", { name: "search.regex" });
+
+    for (const [pattern, issue] of [
+      ["(unclosed", "invalid"],
+      ["foo(?=bar)", "lookaround"],
+      ["(a)\\1", "backreference"],
+    ] as const) {
+      fireEvent.change(box, { target: { value: pattern } });
+      expect(screen.getByRole("alert")).toHaveTextContent(`search.regex-issue-${issue}`);
+      expect(box).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByRole("button", { name: "common.search" })).toBeDisabled();
+      fireEvent.keyDown(box, { key: "Enter" });
+    }
+    expect(state.setFilters).not.toHaveBeenCalled();
+
+    fireEvent.change(box, { target: { value: "fine" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "common.search" })).toBeEnabled();
+  });
+
+  it("restores an applied regex into the regex box and labels its chip", async () => {
+    state.filters = [{ factor: "regexSearch", value: "^todo" }];
+    renderSearch();
+    expect(screen.getByRole("button", { name: "search.edit-query" })).toHaveTextContent("/^todo/");
+    openQuickFind();
+    expect(await screen.findByRole("textbox", { name: "search.regex" })).toHaveValue("^todo");
+    expect(screen.getByRole("tab", { name: "search.regex" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("restores the expression from its chip and discards cancelled changes", async () => {

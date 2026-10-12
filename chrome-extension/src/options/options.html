@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Memos Web Clipper options</title>
+    <link rel="stylesheet" href="../styles/ui.css" />
+    <style>main { max-width: 520px; margin: 24px auto; }</style>
+  </head>
+  <body>
+    <main>
+      <h1>Memos Web Clipper</h1>
+      <form id="form" style="display:flex;flex-direction:column;gap:10px">
+        <label>Server address
+          <input id="serverUrl" type="text" inputmode="url" placeholder="https://memos.example.com" autocomplete="off" />
+        </label>
+        <label>Access token
+          <input id="token" type="password" placeholder="memos_pat_…" autocomplete="off" />
+        </label>
+        <p class="hint">Create one in Memos under Settings → My Account → Access Tokens. It is stored only in this browser profile.</p>
+        <label>Computer name
+          <input id="computerName" type="text" placeholder="Work laptop" autocomplete="off" />
+        </label>
+        <p class="hint">Written into every note so you can tell where it was saved from. Stored on this computer only, never synced.</p>
+        <label>Tag
+          <input id="tag" type="text" placeholder="web-clip" autocomplete="off" />
+        </label>
+        <p class="hint">Added to each note. Leave empty for no tag. Slashes work, e.g. <code>inbox/web</code>.</p>
+        <label>Visibility
+          <select id="visibility">
+            <option value="PRIVATE">Private</option>
+            <option value="PROTECTED">Protected (signed-in users)</option>
+            <option value="PUBLIC">Public</option>
+          </select>
+        </label>
+        <div class="row">
+          <button id="save" class="primary" type="submit">Save settings</button>
+          <button id="test" type="button">Test connection</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

@@ -2,7 +2,17 @@ import { matchPath } from "react-router-dom";
 import { isCalendarRoute, isMemoScopeRoute, type MemoScope, resolveMemoScope } from "@/lib/memo-views";
 import { getCollectionHomePath, ROUTES, resolveCollectionRoute } from "@/router/routes";
 
-export type SidebarRouteKind = MemoScope | "views" | "calendar" | "map" | "attachments" | "inbox" | "settings" | "memo" | "common";
+export type SidebarRouteKind =
+  | MemoScope
+  | "views"
+  | "calendar"
+  | "map"
+  | "boards"
+  | "attachments"
+  | "inbox"
+  | "settings"
+  | "memo"
+  | "common";
 
 export type RouteSearchScope = "route-collection" | "user-collection" | "all";
 
@@ -18,6 +28,7 @@ export const getSidebarRouteKind = (path: string): SidebarRouteKind => {
   if (matchPath(ROUTES.VIEWS, normalizedPath)) return "views";
   if (isCalendarRoute(normalizedPath)) return "calendar";
   if (matchPath(ROUTES.MAP, normalizedPath)) return "map";
+  if (matchPath(`${ROUTES.BOARDS}/:board?`, normalizedPath)) return "boards";
   if (matchPath(ROUTES.ATTACHMENTS, normalizedPath)) return "attachments";
   if (matchPath(ROUTES.INBOX, normalizedPath)) return "inbox";
   if (matchPath(ROUTES.SETTING, normalizedPath)) return "settings";
@@ -32,7 +43,8 @@ export const getSidebarRouteKind = (path: string): SidebarRouteKind => {
 export const getRouteActionPolicy = (path: string, search = ""): RouteActionPolicy => {
   const kind = getSidebarRouteKind(path);
 
-  if (kind === "home" || kind === "explore") return { searchScope: "route-collection" };
+  // Boards filter their own cards in place rather than leaving for a memo list.
+  if (kind === "home" || kind === "explore" || kind === "boards") return { searchScope: "route-collection" };
   if (kind === "archived") return { searchScope: "user-collection" };
 
   // Calendar and attachments browse the route collection but are not memo lists

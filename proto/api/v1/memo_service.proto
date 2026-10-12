@@ -280,6 +280,14 @@ message Memo {
     (google.api.resource_reference) = {type: "memos.api.v1/Space"}
   ];
 
+  // Optional. The due date of the memo, used when it is a board card (tagged #board/...).
+  optional google.protobuf.Timestamp due_time = 20 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. The position of the memo as a card on each board it is tagged into, keyed by
+  // board name. Lower values sort first. Set by drag and drop; clients choose a value
+  // between the neighbouring cards.
+  map<string, double> board_positions = 21 [(google.api.field_behavior) = OPTIONAL];
+
   // Computed properties of a memo.
   message Property {
     bool has_link = 1;

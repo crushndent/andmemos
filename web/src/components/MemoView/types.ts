@@ -15,6 +15,10 @@ export interface MemoViewProps {
   parentPage?: string;
   shareImageDialogOpen?: boolean;
   onShareImageDialogOpenChange?: (open: boolean) => void;
+  /** Reports when the inline editor opens or closes, so a host can swap its own controls for the editor's. */
+  onEditorOpenChange?: (open: boolean) => void;
+  /** The inline editor pins its buttons to the bottom of the screen; for a memo's own page. */
+  pinEditorActions?: boolean;
 }
 
 export interface MemoViewHandle {

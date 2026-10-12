@@ -2,6 +2,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { ArrowUpLeftFromCircleIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo as useReactMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
+import MemoActionBar from "@/components/MemoActionBar";
 import MemoCommentSection, { type MemoCommentSectionHandle } from "@/components/MemoCommentSection";
 import { MentionResolutionProvider } from "@/components/MemoContent/MentionResolutionContext";
 import MemoParentPlaceholder, { type MemoParentStatus } from "@/components/MemoParentPlaceholder";
@@ -16,11 +17,13 @@ import { useInfiniteMemoComments, useMemo } from "@/hooks/useMemoQueries";
 import { useSharedMemo, withShareAttachmentLinks } from "@/hooks/useMemoShareQueries";
 import { LEGACY_MEMO_COMMENTS_ANCHOR_ID, MEMO_COMMENTS_ANCHOR_ID } from "@/lib/memo-comments";
 import { memoNamePrefix } from "@/lib/resource-names";
+import { cn } from "@/lib/utils";
 import { ROUTES } from "@/router/routes";
 import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
 import { State } from "@/types/proto/api/v1/common_pb";
 import type { Memo } from "@/types/proto/api/v1/memo_service_pb";
 import { findMemoAnchorTarget } from "@/utils/markdown-manipulation";
+import { canManageMemo } from "@/utils/user";
 
 const MemoSidebarRegistration = ({
   memo,
@@ -87,6 +90,7 @@ const MemoDetail = () => {
   const { currentUser, isInitialized: authInitialized } = useAuth();
   const { isInitialized: instanceInitialized } = useInstance();
   const [shareImageDialogOpen, setShareImageDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const params = useParams();
   const location = useLocation();
   const { state: locationState, hash } = location;
@@ -216,12 +220,17 @@ const MemoDetail = () => {
   if (isLoading || !memo || !displayMemo || !authInitialized || !instanceInitialized) {
     return null;
   }
+  // The editor brings its own bottom controls (Update, Cancel); the viewing actions take that place otherwise.
+  const showActionBar = !isEditing && !isShareMode && !!currentUser;
+  const canComment = !!currentUser && displayMemo.state === State.NORMAL;
   const mentionResolutionContents = [displayMemo.content, ...comments.map((comment) => comment.content)];
   const userResolutionNames = Array.from(
     new Set([displayMemo, ...comments].flatMap((item) => [item.creator, ...(item.reactions ?? []).map((reaction) => reaction.creator)])),
   );
   return (
-    <section className="@container flex min-h-full w-full flex-col items-center pb-8 pt-3 md:pt-6">
+    <section
+      className={cn("@container flex min-h-full w-full flex-col items-center pt-3 md:pt-6", showActionBar || isEditing ? "pb-24" : "pb-8")}
+    >
       <MentionResolutionProvider contents={mentionResolutionContents} userNames={userResolutionNames}>
         <MemoSidebarRegistration
           memo={displayMemo}
@@ -268,6 +277,8 @@ const MemoDetail = () => {
               showPinned
               showSpace
               onShareImageDialogOpenChange={setShareImageDialogOpen}
+              onEditorOpenChange={setIsEditing}
+              pinEditorActions
             />
             {!isShareMode && (
               <MemoCommentSection
@@ -284,6 +295,15 @@ const MemoDetail = () => {
           </div>
         </div>
       </MentionResolutionProvider>
+      {showActionBar && (
+        <MemoActionBar
+          memo={displayMemo}
+          parentPage={parentPage}
+          readonly={isShareMode || !canManageMemo(displayMemo, currentUser)}
+          onEdit={handleEdit}
+          onComment={canComment ? handleCommentCreate : undefined}
+        />
+      )}
     </section>
   );
 };
