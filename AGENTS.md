@@ -52,9 +52,6 @@ cd web && pnpm test                # Vitest unit tests
 cd web && pnpm build               # Production build
 cd web && pnpm release             # Build SPA into server/frontend/dist
 
-# Chrome extension (separate project, no install step)
-cd chrome-extension && npm test    # Node built-in test runner
-
 # Protocol Buffers
 cd proto && buf generate           # Regenerate Go + TypeScript + OpenAPI
 cd proto && buf lint               # Lint proto files
@@ -82,7 +79,6 @@ Every root folder is named for what it holds. Read the folder's `doc.go` or `REA
 | `internal/` | Private plumbing with no memos vocabulary (`identifier`, `email`, `webhook`, `ratelimit`, …) | third party only |
 | `proto/api/v1/`, `proto/store/` | Public API and internal storage proto sources; `proto/gen/` is generated | |
 | `web/src/` | React SPA: `connect.ts` clients, `auth-state.ts`, `hooks/`, `contexts/`, `components/`, `themes/` | |
-| `chrome-extension/` | Separate project: Manifest V3 web clipper that saves pages as notes through the public API. Own `package.json` and tests; shares no code with the layers above, so import nothing from or into it | |
 
 Layering rules, enforced by `depguard` in `.golangci.yaml`:
 
