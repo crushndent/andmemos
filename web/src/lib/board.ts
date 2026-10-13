@@ -55,17 +55,22 @@ export const EMPTY_BOARD_LAYOUT: BoardLayout = { boards: [], lists: {} };
 /** Name of the list that holds cards with no list tag when a board has no lists yet. */
 export const DEFAULT_LIST = "inbox";
 
-/** Parses `board/<board>[/<list>]`; returns null for anything that is not a board tag. */
+/**
+ * Parses `board/<board>[/<list>]`; returns null for anything that is not a board tag. A list is one
+ * segment: anything written deeper (`board/work/todo/urgent`) still belongs to the `todo` list.
+ */
 export const parseBoardTag = (tag: string): BoardTag | null => {
   const segments = tag.split("/");
   if (segments[0] !== BOARD_TAG_ROOT || segments.length < 2 || segments[1] === "") return null;
-  const board = segments[1];
-  const list = segments.slice(2).join("/");
-  return { tag, board, list: list === "" ? undefined : list };
+  return { tag, board: segments[1], list: segments[2] || undefined };
 };
 
 export const getBoardTags = (tags: readonly string[]): BoardTag[] =>
   tags.map(parseBoardTag).filter((boardTag): boardTag is BoardTag => boardTag !== null);
+
+/** Tags shown as labels on a card: the tags written on the memo, without board tags or the ancestors the server adds. */
+export const getLabelTags = (tags: readonly string[]): string[] =>
+  tags.filter((tag) => parseBoardTag(tag) === null && tag !== BOARD_TAG_ROOT && !tags.some((other) => other.startsWith(`${tag}/`)));
 
 /** Makes a user-typed board or list name safe to use as a single tag segment. */
 export const normalizeBoardSegment = (name: string): string =>
@@ -133,15 +138,25 @@ export const compareCards = (a: BoardCard, b: BoardCard): number => {
   return createSeconds(b.memo) - createSeconds(a.memo) || a.memo.name.localeCompare(b.memo.name);
 };
 
-/** One card per (memo, board). A memo with several tags on one board sits in the first of them. */
+/**
+ * The tag that actually places a memo on a board. The server reports a hierarchical tag together with
+ * every ancestor (`#board/work/doing` arrives as `board`, `board/work`, `board/work/doing`), so the
+ * ancestors must not win: the placing tag is the first one that no other tag of the board extends.
+ */
+const placingTag = (tags: readonly BoardTag[]): BoardTag =>
+  tags.find((candidate) => !tags.some((other) => other.tag.startsWith(`${candidate.tag}/`))) ?? tags[0];
+
+/** One card per (memo, board). A memo tagged into several lists of one board sits in the first of them. */
 export const getBoardCards = (memos: readonly Memo[]): BoardCard[] => {
   const cards: BoardCard[] = [];
   for (const memo of memos) {
-    const seen = new Set<string>();
+    const byBoard = new Map<string, BoardTag[]>();
     for (const boardTag of getBoardTags(memo.tags)) {
-      if (seen.has(boardTag.board)) continue;
-      seen.add(boardTag.board);
-      cards.push({ memo, board: boardTag.board, list: boardTag.list, tag: boardTag.tag });
+      byBoard.set(boardTag.board, [...(byBoard.get(boardTag.board) ?? []), boardTag]);
+    }
+    for (const [board, tags] of byBoard) {
+      const { tag, list } = placingTag(tags);
+      cards.push({ memo, board, list, tag });
     }
   }
   return cards;
@@ -301,6 +316,24 @@ export const withList = (layout: BoardLayout, board: string, list: string, curre
     boards: layout.boards.includes(board) ? layout.boards : [...layout.boards, board],
     lists: { ...layout.lists, [board]: existing.includes(list) ? existing : [...existing, list] },
   };
+};
+
+/** Remembers the lists a board currently shows, so one that has just been emptied does not vanish. */
+export const withListsRemembered = (layout: BoardLayout, board: string, shown: readonly string[]): BoardLayout => {
+  const known = layout.lists[board] ?? [];
+  const missing = shown.filter((list) => !known.includes(list));
+  if (missing.length === 0) return layout;
+  return {
+    boards: layout.boards.includes(board) ? layout.boards : [...layout.boards, board],
+    lists: { ...layout.lists, [board]: [...known, ...missing] },
+  };
+};
+
+/** Forgets a list. Only a list with no cards disappears; one that still has cards comes back from their tags. */
+export const withoutList = (layout: BoardLayout, board: string, list: string): BoardLayout => {
+  const known = layout.lists[board];
+  if (!known?.includes(list)) return layout;
+  return { ...layout, lists: { ...layout.lists, [board]: known.filter((name) => name !== list) } };
 };
 
 export const withBoard = (layout: BoardLayout, board: string): BoardLayout =>

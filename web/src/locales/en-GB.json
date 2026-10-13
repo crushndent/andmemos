@@ -934,6 +934,7 @@
     "list-name-placeholder": "List name",
     "move-list-left": "Move list left",
     "move-list-right": "Move list right",
+    "remove-list": "Remove empty list",
     "new-board": "New board",
     "new-board-placeholder": "New board name",
     "title": "Boards"

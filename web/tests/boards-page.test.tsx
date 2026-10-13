@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Boards from "@/pages/Boards";
@@ -34,11 +34,17 @@ vi.mock("@/hooks/useMemoFilters", () => ({ useMemoFilters: () => filterState.mem
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
 vi.mock("@/components/MemoView", () => ({ default: ({ memo }: { memo: Memo }) => <div data-testid="memo-view">{memo.name}</div> }));
 
+/** The server reports every ancestor of a hierarchical tag: `a/b/c` arrives as `a`, `a/b`, `a/b/c`. */
+const withAncestors = (tag: string): string[] => tag.split("/").map((_, i, parts) => parts.slice(0, i + 1).join("/"));
+
 const memo = (n: number, tag: string, extra: Record<string, unknown> = {}): Memo =>
-  create(MemoSchema, { name: `memos/${n}`, content: `Card ${n} #${tag}`, tags: [tag], snippet: `Card ${n}`, ...extra } as Record<
-    string,
-    unknown
-  >);
+  create(MemoSchema, {
+    name: `memos/${n}`,
+    content: `Card ${n} #${tag}`,
+    tags: withAncestors(tag),
+    snippet: `Card ${n}`,
+    ...extra,
+  } as Record<string, unknown>);
 
 const Where = () => <output data-testid="where">{useLocation().pathname}</output>;
 
@@ -120,6 +126,37 @@ describe("<Boards>", () => {
 
     expect(screen.getByRole("region", { name: "Review" })).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem("memos-board-layout") ?? "{}").lists.work).toEqual(["todo", "done", "review"]);
+  });
+
+  it("keeps a list on screen after its last card moves to another list", () => {
+    feed.memos = [memo(1, "board/work/todo"), memo(2, "board/work/doing")];
+    const { rerender } = renderPage("/boards/work");
+    expect(screen.getAllByRole("region").map((r) => r.getAttribute("data-list"))).toEqual(["todo", "doing"]);
+    expect(JSON.parse(localStorage.getItem("memos-board-layout") ?? "{}").lists.work).toEqual(["todo", "doing"]);
+
+    // The only card in "todo" is dragged into "doing": the tags the server now reports.
+    feed.memos = [memo(1, "board/work/doing"), memo(2, "board/work/doing")];
+    rerender(
+      <MemoryRouter initialEntries={["/boards/work"]}>
+        <Routes>
+          <Route path="/boards/:board?" element={<Boards />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByRole("region").map((r) => r.getAttribute("data-list"))).toEqual(["todo", "doing"]);
+    expect(within(screen.getByRole("region", { name: "Todo" })).queryAllByRole("article")).toHaveLength(0);
+  });
+
+  it("removes an empty list for good", () => {
+    feed.memos = [memo(1, "board/work/doing")];
+    localStorage.setItem("memos-board-layout", JSON.stringify({ boards: ["work"], lists: { work: ["todo", "doing"] } }));
+    renderPage("/boards/work");
+
+    fireEvent.click(within(screen.getByRole("region", { name: "Todo" })).getByRole("button", { name: "board.remove-list" }));
+
+    expect(screen.queryByRole("region", { name: "Todo" })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("memos-board-layout") ?? "{}").lists.work).toEqual(["doing"]);
   });
 
   it("moves a list and keeps the new order", () => {

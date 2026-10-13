@@ -12,6 +12,7 @@ import {
   getCardTitle,
   getChecklistProgress,
   getDueState,
+  getLabelTags,
   isDoneList,
   moveCardToList,
   normalizeBoardSegment,
@@ -21,11 +22,18 @@ import {
   planCardDrop,
   withList,
   withListMoved,
+  withListsRemembered,
+  withoutList,
 } from "@/lib/board";
 import { type Memo, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 
+/** The server reports every ancestor of a hierarchical tag: `a/b/c` arrives as `a`, `a/b`, `a/b/c`. */
+const withAncestors = (tags: string[]): string[] => [
+  ...new Set(tags.flatMap((tag) => tag.split("/").map((_, i, parts) => parts.slice(0, i + 1).join("/")))),
+];
+
 const memo = (name: string, tags: string[], extra: Partial<Memo> = {}): Memo =>
-  create(MemoSchema, { name, tags, content: tags.map((t) => `#${t}`).join(" "), ...extra } as Record<string, unknown>);
+  create(MemoSchema, { name, tags: withAncestors(tags), content: tags.map((t) => `#${t}`).join(" "), ...extra } as Record<string, unknown>);
 
 const at = (iso: string) => timestampFromDate(new Date(iso));
 
@@ -33,7 +41,8 @@ describe("board tags", () => {
   it("parses board and list from a board tag", () => {
     expect(parseBoardTag("board/work/todo")).toEqual({ tag: "board/work/todo", board: "work", list: "todo" });
     expect(parseBoardTag("board/work")).toEqual({ tag: "board/work", board: "work", list: undefined });
-    expect(parseBoardTag("board/work/in/progress")?.list).toBe("in/progress");
+    // A list is one segment; anything deeper still belongs to it.
+    expect(parseBoardTag("board/work/todo/urgent")).toEqual({ tag: "board/work/todo/urgent", board: "work", list: "todo" });
   });
 
   it("ignores tags that are not board tags", () => {
@@ -52,6 +61,51 @@ describe("board tags", () => {
     expect(normalizeBoardSegment("a/b #c")).toBe("a-b-c");
     expect(normalizeBoardSegment("///")).toBe("");
     expect(formatBoardSegment("in-progress")).toBe("In progress");
+  });
+});
+
+describe("cards from the tags the server really reports", () => {
+  it("places a card by the tag it was written with, not by the ancestors the server adds", () => {
+    const m = memo("memos/1", ["board/work/doing"]);
+    expect(m.tags).toEqual(["board", "board/work", "board/work/doing"]);
+    const [card] = getBoardCards([m]);
+    expect(card).toMatchObject({ board: "work", list: "doing", tag: "board/work/doing" });
+  });
+
+  it("puts each card in its own list rather than the first one", () => {
+    const [board] = buildBoards([
+      memo("memos/1", ["board/work/todo"]),
+      memo("memos/2", ["board/work/doing"]),
+      memo("memos/3", ["board/work/done"]),
+    ]);
+    expect(board.lists.map((l) => [l.name, l.cards.map((c) => c.memo.name)])).toEqual([
+      ["todo", ["memos/1"]],
+      ["doing", ["memos/2"]],
+      ["done", ["memos/3"]],
+    ]);
+  });
+
+  it("still treats a bare board tag as list-less", () => {
+    const [card] = getBoardCards([memo("memos/1", ["board/work"])]);
+    expect(card).toMatchObject({ board: "work", list: undefined, tag: "board/work" });
+  });
+
+  it("uses the written tag even when it has sub-parts, and keeps the card in that list", () => {
+    const [card] = getBoardCards([memo("memos/1", ["board/work/todo/urgent"])]);
+    expect(card).toMatchObject({ list: "todo", tag: "board/work/todo/urgent" });
+  });
+
+  it("keeps a memo on two boards in the right list of each", () => {
+    const cards = getBoardCards([memo("memos/1", ["board/work/doing", "board/home/chores"])]);
+    expect(cards.map((c) => [c.board, c.list, c.tag])).toEqual([
+      ["work", "doing", "board/work/doing"],
+      ["home", "chores", "board/home/chores"],
+    ]);
+  });
+
+  it("moves a card by rewriting the tag it was written with", () => {
+    const [card] = getBoardCards([memo("memos/1", ["board/work/doing"], { content: "Fix bug #board/work/doing #urgent" })]);
+    expect(moveCardToList("Fix bug #board/work/doing #urgent", card, "done")).toBe("Fix bug #board/work/done #urgent");
   });
 });
 
@@ -267,5 +321,48 @@ describe("saved layout", () => {
     expect(withListMoved(base, "w", "done", -1, ["todo", "done"]).lists.w).toEqual(["done", "todo"]);
     expect(withListMoved(base, "w", "todo", -1, ["todo", "done"])).toBe(base);
     expect(withListMoved(base, "w", "done", 1, ["todo", "done"])).toBe(base);
+  });
+});
+
+describe("remembering lists", () => {
+  it("adds newly seen lists after the known ones, and does nothing when nothing is new", () => {
+    const layout = { boards: [], lists: { work: ["todo"] } };
+    expect(withListsRemembered(layout, "work", ["todo", "doing"])).toEqual({ boards: ["work"], lists: { work: ["todo", "doing"] } });
+    expect(withListsRemembered(layout, "work", ["todo"])).toBe(layout);
+  });
+
+  it("keeps a list on screen after its last card has moved away", () => {
+    const remembered = withListsRemembered({ boards: [], lists: {} }, "work", ["todo", "doing"]);
+    const [board] = buildBoards([memo("memos/1", ["board/work/doing"])], remembered);
+    expect(board.lists.map((l) => [l.name, l.cards.length])).toEqual([
+      ["todo", 0],
+      ["doing", 1],
+    ]);
+  });
+
+  it("forgets a list on request", () => {
+    const layout = { boards: ["work"], lists: { work: ["todo", "doing"] } };
+    expect(withoutList(layout, "work", "todo").lists.work).toEqual(["doing"]);
+    expect(withoutList(layout, "work", "nope")).toBe(layout);
+  });
+
+  it("a forgotten list returns if a card is still tagged into it", () => {
+    const [board] = buildBoards(
+      [memo("memos/1", ["board/work/todo"])],
+      withoutList({ boards: ["work"], lists: { work: ["todo"] } }, "work", "todo"),
+    );
+    expect(board.lists.map((l) => l.name)).toEqual(["todo"]);
+  });
+});
+
+describe("getLabelTags", () => {
+  it("shows the tags the user wrote, not board tags or the ancestors the server adds", () => {
+    const m = memo("memos/1", ["board/work/doing", "idea/x", "urgent"]);
+    expect(m.tags).toEqual(["board", "board/work", "board/work/doing", "idea", "idea/x", "urgent"]);
+    expect(getLabelTags(m.tags)).toEqual(["idea/x", "urgent"]);
+  });
+
+  it("shows nothing for a card with only board tags", () => {
+    expect(getLabelTags(memo("memos/1", ["board/work/todo"]).tags)).toEqual([]);
   });
 });
