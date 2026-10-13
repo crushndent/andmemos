@@ -29,6 +29,37 @@ vi.mock("@/hooks/useMemoQueries", () => ({
   useUpdateMemo: () => ({ mutateAsync: update }),
   useCreateMemo: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+// The page is tested against an in-memory layout kept in localStorage; the real hook, which keeps the layout in
+// shared `#board-layout` memos, is tested in board-layout-hook.test.tsx.
+vi.mock("@/hooks/useBoardLayout", async () => {
+  const React = await import("react");
+  const board = await import("@/lib/board");
+  const KEY = board.BOARD_LAYOUT_STORAGE_KEY;
+  return {
+    useBoardLayout: () => {
+      const [layout, setLayout] = React.useState(() => board.parseBoardLayout(localStorage.getItem(KEY)));
+      const update = React.useCallback((change: (current: typeof layout) => typeof layout) => {
+        setLayout((current) => {
+          const next = change(current);
+          if (next !== current) localStorage.setItem(KEY, JSON.stringify(next));
+          return next;
+        });
+      }, []);
+      return {
+        layout,
+        loaded: true,
+        addBoard: (b: string) => update((c) => board.withBoard(c, b)),
+        addList: (b: string, l: string, order: readonly string[]) => update((c) => board.withList(c, b, l, order)),
+        moveList: (b: string, l: string, d: -1 | 1, order: readonly string[]) => update((c) => board.withListMoved(c, b, l, d, order)),
+        rememberLists: React.useCallback(
+          (b: string, shown: readonly string[]) => update((c) => board.withListsRemembered(c, b, shown)),
+          [update],
+        ),
+        removeList: (b: string, l: string) => update((c) => board.withoutList(c, b, l)),
+      };
+    },
+  };
+});
 const filterState = vi.hoisted(() => ({ memoFilter: undefined as string | undefined }));
 vi.mock("@/hooks/useMemoFilters", () => ({ useMemoFilters: () => filterState.memoFilter }));
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));

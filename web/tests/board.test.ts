@@ -3,22 +3,31 @@ import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import {
   BOARD_FILTER,
+  BOARD_LAYOUT_TAG,
   type BoardCard,
   buildBoards,
+  changedLayoutBoards,
   compareCards,
   DEFAULT_LIST,
   formatBoardSegment,
+  formatLayoutMemo,
   getBoardCards,
   getCardTitle,
   getChecklistProgress,
   getDueState,
   getLabelTags,
+  getLayoutMemos,
+  HIDE_BOARD_LAYOUT_FILTER,
+  isBoardLayoutMemo,
   isDoneList,
+  layoutFromMemos,
+  mergeLayouts,
   moveCardToList,
   normalizeBoardSegment,
   orderLists,
   parseBoardLayout,
   parseBoardTag,
+  parseLayoutMemo,
   planCardDrop,
   withList,
   withListMoved,
@@ -364,5 +373,68 @@ describe("getLabelTags", () => {
 
   it("shows nothing for a card with only board tags", () => {
     expect(getLabelTags(memo("memos/1", ["board/work/todo"]).tags)).toEqual([]);
+  });
+});
+
+describe("shared layout memos", () => {
+  const layoutMemo = (name: string, content: string, created: string) =>
+    create(MemoSchema, { name, tags: [BOARD_LAYOUT_TAG], content, createTime: at(created) } as Record<string, unknown>);
+
+  it("round-trips a board's lists in order, empty ones included", () => {
+    const text = formatLayoutMemo("TWork", ["todo", "doing", "done"]);
+    expect(text).toBe("#board-layout\n\n# TWork\n\n- todo\n- doing\n- done\n");
+    expect(parseLayoutMemo(text)).toEqual({ board: "TWork", lists: ["todo", "doing", "done"] });
+    expect(parseLayoutMemo(formatLayoutMemo("home", []))).toEqual({ board: "home", lists: [] });
+  });
+
+  it("reads hand-edited text: other bullets, duplicates, code blocks and missing headings", () => {
+    expect(parseLayoutMemo("#board-layout\n# Work\n* to do\n- [x] done\n- done\n```\n- nope\n```\n")).toEqual({
+      board: "Work",
+      lists: ["to-do", "done"],
+    });
+    expect(parseLayoutMemo("#board-layout\n- todo")).toBeNull();
+  });
+
+  it("builds the shared layout; a board with two memos merges them, the oldest first", () => {
+    const memos = [
+      layoutMemo("memos/2", formatLayoutMemo("work", ["review", "todo"]), "2026-10-02T00:00:00Z"),
+      layoutMemo("memos/1", formatLayoutMemo("work", ["todo", "doing"]), "2026-10-01T00:00:00Z"),
+      layoutMemo("memos/3", formatLayoutMemo("home", []), "2026-10-03T00:00:00Z"),
+    ];
+    expect(layoutFromMemos(memos)).toEqual({ boards: ["work", "home"], lists: { work: ["todo", "doing", "review"], home: [] } });
+    expect(getLayoutMemos(memos).get("work")?.name).toBe("memos/1");
+  });
+
+  it("an empty list from the layout memo shows on the board", () => {
+    const layout = layoutFromMemos([layoutMemo("memos/9", formatLayoutMemo("TWork", ["todo", "doing", "done"]), "2026-10-01T00:00:00Z")]);
+    const [board] = buildBoards([memo("memos/1", ["board/TWork/doing"])], layout);
+    expect(board.lists.map((l) => [l.name, l.cards.length])).toEqual([
+      ["todo", 0],
+      ["doing", 1],
+      ["done", 0],
+    ]);
+  });
+
+  it("is never a card and is hidden from memo lists", () => {
+    const m = layoutMemo("memos/9", formatLayoutMemo("work", ["todo"]), "2026-10-01T00:00:00Z");
+    expect(isBoardLayoutMemo(m)).toBe(true);
+    expect(getBoardCards([m])).toEqual([]);
+    expect(HIDE_BOARD_LAYOUT_FILTER).toBe('!(tag in ["board-layout"])');
+  });
+
+  it("finds which boards need their memo written", () => {
+    const before = { boards: ["work"], lists: { work: ["todo", "done"] } };
+    expect(changedLayoutBoards(before, before)).toEqual([]);
+    expect(changedLayoutBoards(before, { boards: ["work"], lists: { work: ["done", "todo"] } })).toEqual(["work"]);
+    expect(changedLayoutBoards(before, { boards: ["work", "home"], lists: before.lists })).toEqual(["home"]);
+  });
+
+  it("uploads a browser's old local layout without dropping shared lists", () => {
+    const shared = { boards: ["work"], lists: { work: ["todo", "doing"] } };
+    const local = { boards: ["work", "home"], lists: { work: ["todo", "review"], home: ["chores"] } };
+    expect(mergeLayouts(shared, local)).toEqual({
+      boards: ["work", "home"],
+      lists: { work: ["todo", "doing", "review"], home: ["chores"] },
+    });
   });
 });

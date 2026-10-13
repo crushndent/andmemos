@@ -47,7 +47,7 @@ describe("memo views", () => {
       includePinned: true,
     });
     expect(combineCELFilters('space == "spaces/product"', filter)).toBe(
-      '(space == "spaces/product") && ((creator == "users/steven") && (has_link || has_code) && (content.contains("plan") || pinned) && (tag in ["work"]))',
+      '(space == "spaces/product") && ((!(tag in ["board-layout"])) && (creator == "users/steven") && (has_link || has_code) && (content.contains("plan") || pinned) && (tag in ["work"]))',
     );
   });
   it("extracts the saved view ID", () => {
@@ -67,7 +67,7 @@ describe("memo views", () => {
         visibilities: [Visibility.PUBLIC],
       }),
     ).toBe(
-      '(creator == "users/steven") && (has_task_list && has_incomplete_tasks) && (content.contains("plan")) && (tag in ["work"]) && (visibility in ["PUBLIC"])',
+      '(!(tag in ["board-layout"])) && (creator == "users/steven") && (has_task_list && has_incomplete_tasks) && (content.contains("plan")) && (tag in ["work"]) && (visibility in ["PUBLIC"])',
     );
   });
 
@@ -78,7 +78,7 @@ describe("memo views", () => {
         includePinned: false,
         visibilities: [Visibility.PUBLIC, Visibility.PROTECTED, Visibility.SPACE],
       }),
-    ).toBe('(visibility in ["PUBLIC", "PROTECTED", "SPACE"])');
+    ).toBe('(!(tag in ["board-layout"])) && (visibility in ["PUBLIC", "PROTECTED", "SPACE"])');
   });
 
   it("maps property filter factors to their CEL flags", () => {
@@ -92,7 +92,7 @@ describe("memo views", () => {
         ],
         includePinned: false,
       }),
-    ).toBe("(has_link) && (has_task_list) && (has_code) && (has_location)");
+    ).toBe('(!(tag in ["board-layout"])) && (has_link) && (has_task_list) && (has_code) && (has_location)');
   });
 
   it("uses a saved memo view filter", () => {
@@ -102,7 +102,7 @@ describe("memo views", () => {
         includePinned: false,
         selectedMemoViewFilter: 'tag in ["work"]',
       }),
-    ).toBe('(tag in ["work"])');
+    ).toBe('(!(tag in ["board-layout"])) && (tag in ["work"])');
   });
 
   it("builds display-time filters from valid local calendar-day boundaries", () => {
@@ -116,7 +116,7 @@ describe("memo views", () => {
         includePinned: false,
       }),
     ).toBe(
-      `(created_ts >= timestamp(${Math.floor(start.getTime() / 1000)}) && created_ts < timestamp(${Math.floor(end.getTime() / 1000)}))`,
+      `(!(tag in ["board-layout"])) && (created_ts >= timestamp(${Math.floor(start.getTime() / 1000)}) && created_ts < timestamp(${Math.floor(end.getTime() / 1000)}))`,
     );
   });
 
@@ -132,16 +132,16 @@ describe("memo views", () => {
         timeBasis: "update_time",
       }),
     ).toBe(
-      `(updated_ts >= timestamp(${Math.floor(start.getTime() / 1000)}) && updated_ts < timestamp(${Math.floor(end.getTime() / 1000)}))`,
+      `(!(tag in ["board-layout"])) && (updated_ts >= timestamp(${Math.floor(start.getTime() / 1000)}) && updated_ts < timestamp(${Math.floor(end.getTime() / 1000)}))`,
     );
   });
 
-  it("ignores invalid display-time filter values", () => {
+  it("ignores invalid display-time filter values, keeping only the board layout exclusion", () => {
     expect(
       buildMemoFilter({
         filters: [{ factor: "displayTime", value: "2026-02-30" }],
         includePinned: false,
       }),
-    ).toBeUndefined();
+    ).toBe('(!(tag in ["board-layout"]))');
   });
 });

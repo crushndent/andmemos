@@ -354,3 +354,113 @@ export const withListMoved = (
   [order[from], order[to]] = [order[to], order[from]];
   return { ...layout, lists: { ...layout.lists, [board]: order } };
 };
+
+// ---- Shared layout memos ----
+//
+// Tags can't hold an empty list or the order of lists, so every client stores that in one private memo per
+// board, tagged `#board-layout`. The memo syncs like any other, so the web app and the Android app share it.
+// It is hidden from every memo list; see `HIDE_BOARD_LAYOUT_FILTER`. Card membership and card order are not
+// stored here: the cards' own tags and `boardPositions` already say that.
+//
+//   #board-layout
+//
+//   # TWork
+//
+//   - todo
+//   - doing
+//   - done
+
+/** Tag of a board layout memo. Not under `board/`, so the memo is never read as a card. */
+export const BOARD_LAYOUT_TAG = "board-layout";
+
+/** CEL filter selecting the layout memos. */
+export const BOARD_LAYOUT_FILTER = `tag in ["${BOARD_LAYOUT_TAG}"]`;
+
+/** CEL filter every memo list adds so layout memos never show up as notes. */
+export const HIDE_BOARD_LAYOUT_FILTER = `!(${BOARD_LAYOUT_FILTER})`;
+
+/** True for a board layout memo, from the tags the server reports. */
+export const isBoardLayoutMemo = (memo: Pick<Memo, "tags">): boolean => memo.tags.includes(BOARD_LAYOUT_TAG);
+
+export interface BoardLayoutEntry {
+  board: string;
+  lists: string[];
+}
+
+/** Reads a layout memo's text: the first `# ` heading names the board, and each `- ` item is a list, in order. */
+export const parseLayoutMemo = (content: string): BoardLayoutEntry | null => {
+  let board = "";
+  const lists: string[] = [];
+  let inFence = false;
+  for (const line of content.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const heading = /^#\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading && !board) {
+      board = normalizeBoardSegment(heading[1]);
+      continue;
+    }
+    const item = /^\s*[-*+]\s+(?:\[[ xX]\]\s+)?(.+?)\s*$/.exec(line);
+    if (item && board) {
+      const list = normalizeBoardSegment(item[1]);
+      if (list && !lists.includes(list)) lists.push(list);
+    }
+  }
+  return board ? { board, lists } : null;
+};
+
+/** The text of a board's layout memo. */
+export const formatLayoutMemo = (board: string, lists: readonly string[]): string =>
+  [`#${BOARD_LAYOUT_TAG}`, "", `# ${board}`, "", ...lists.map((list) => `- ${list}`)].join("\n").trimEnd() + "\n";
+
+/** Layout memos keyed by the board they describe; with duplicates, the oldest wins. */
+export const getLayoutMemos = (memos: readonly Memo[]): Map<string, Memo> => {
+  const byBoard = new Map<string, Memo>();
+  const oldestFirst = [...memos].sort(
+    (a, b) => (a.createTime ? timestampDate(a.createTime).getTime() : 0) - (b.createTime ? timestampDate(b.createTime).getTime() : 0),
+  );
+  for (const memo of oldestFirst) {
+    const entry = parseLayoutMemo(memo.content);
+    if (entry && !byBoard.has(entry.board)) byBoard.set(entry.board, memo);
+  }
+  return byBoard;
+};
+
+/** The shared layout from the layout memos. Boards with duplicate memos merge their lists, the oldest memo's first. */
+export const layoutFromMemos = (memos: readonly Memo[]): BoardLayout => {
+  const boards: string[] = [];
+  const lists: Record<string, string[]> = {};
+  const oldestFirst = [...memos].sort(
+    (a, b) => (a.createTime ? timestampDate(a.createTime).getTime() : 0) - (b.createTime ? timestampDate(b.createTime).getTime() : 0),
+  );
+  for (const memo of oldestFirst) {
+    const entry = parseLayoutMemo(memo.content);
+    if (!entry) continue;
+    if (!boards.includes(entry.board)) boards.push(entry.board);
+    const known = lists[entry.board] ?? [];
+    lists[entry.board] = [...known, ...entry.lists.filter((list) => !known.includes(list))];
+  }
+  return { boards, lists };
+};
+
+/** Boards whose layout differs between `before` and `after`, i.e. the layout memos to write. */
+export const changedLayoutBoards = (before: BoardLayout, after: BoardLayout): string[] => {
+  const names = new Set([...after.boards, ...Object.keys(after.lists)]);
+  return [...names].filter((board) => {
+    const was = before.lists[board] ?? [];
+    const now = after.lists[board] ?? [];
+    const isNew = !before.boards.includes(board) && !before.lists[board];
+    return isNew || was.length !== now.length || was.some((list, i) => list !== now[i]);
+  });
+};
+
+/** Everything in `extra` that `base` lacks, appended; used once to upload a browser's old local layout. */
+export const mergeLayouts = (base: BoardLayout, extra: BoardLayout): BoardLayout => {
+  let merged = base;
+  for (const board of extra.boards) merged = withBoard(merged, board);
+  for (const [board, names] of Object.entries(extra.lists)) merged = withListsRemembered(merged, board, names);
+  return merged;
+};

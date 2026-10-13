@@ -771,3 +771,42 @@ func TestCompileRejectsOversizedExpression(t *testing.T) {
 	_, err = engine.Compile(context.Background(), `content.contains("a") || content.contains("b")`)
 	require.NoError(t, err)
 }
+
+// Clients hide board layout memos (andmemos kanban) from every memo list with this exact filter, so it must
+// keep memos with no tags or other tags and drop only the tagged ones.
+func TestRenderNegatedTagInSQLiteBehavior(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`CREATE TABLE memo (id INTEGER PRIMARY KEY, payload TEXT)`)
+	require.NoError(t, err)
+	for id, payload := range map[int]string{
+		1: `{}`,
+		2: `{"tags":[]}`,
+		3: `{"tags":["work"]}`,
+		4: `{"tags":["board-layout"]}`,
+		5: `{"tags":["board-layout","work"]}`,
+		6: `{"tags":["board-layout-old"]}`,
+	} {
+		_, err = db.Exec(`INSERT INTO memo (id, payload) VALUES (?, ?)`, id, payload)
+		require.NoError(t, err)
+	}
+
+	engine, err := NewEngine(NewSchema())
+	require.NoError(t, err)
+	stmt, err := engine.CompileToStatement(context.Background(), `!(tag in ["board-layout"])`, RenderOptions{Dialect: DialectSQLite})
+	require.NoError(t, err)
+	rows, err := db.Query(`SELECT id FROM memo WHERE `+stmt.SQL+` ORDER BY id`, stmt.Args...)
+	require.NoError(t, err)
+	defer rows.Close()
+	var got []int
+	for rows.Next() {
+		var id int
+		require.NoError(t, rows.Scan(&id))
+		got = append(got, id)
+	}
+	require.NoError(t, rows.Err())
+	require.Equal(t, []int{1, 2, 3, 6}, got)
+}

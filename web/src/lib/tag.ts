@@ -1,13 +1,16 @@
+import { BOARD_LAYOUT_TAG } from "@/lib/board";
 import type { UserSetting_TagMetadata, UserSetting_TagsSetting } from "@/types/proto/api/v1/user_service_pb";
 
 // Cache compiled regexes to avoid re-compiling on every tag render.
 const compiledPatternCache = new Map<string, RegExp | null>();
 
-/** Merge exact tag counts without inheriting Object prototype keys. */
+/** Merge exact tag counts without inheriting Object prototype keys. The board layout tag is never listed. */
 export const mergeTagCounts = (...sources: Array<Record<string, number> | undefined>): Record<string, number> => {
   const result = Object.create(null) as Record<string, number>;
   for (const source of sources) {
-    for (const [tag, count] of Object.entries(source ?? {})) result[tag] = (result[tag] ?? 0) + count;
+    for (const [tag, count] of Object.entries(source ?? {})) {
+      if (tag !== BOARD_LAYOUT_TAG) result[tag] = (result[tag] ?? 0) + count;
+    }
   }
   return result;
 };

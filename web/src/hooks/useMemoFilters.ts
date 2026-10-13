@@ -3,6 +3,7 @@ import { type MemoFilter, useMemoFilterContext } from "@/contexts/MemoFilterCont
 import { type MemoTimeBasis, useView } from "@/contexts/ViewContext";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useMemoViews } from "@/hooks/useUserQueries";
+import { HIDE_BOARD_LAYOUT_FILTER } from "@/lib/board";
 import { buildTimestampRangeFilter, getLocalDayTimestampRange, getTimeBasisField } from "@/lib/calendar-utils";
 import { combineCELFilters } from "@/lib/cel-filter";
 import { getMemoViewId } from "@/lib/memo-views";
@@ -37,7 +38,8 @@ export const buildMemoFilter = ({
   visibilities,
   timeBasis = "create_time",
 }: BuildMemoFilterOptions): string | undefined => {
-  const conditions: string[] = [];
+  // Board layout memos (see lib/board.ts) are data for the boards, not notes.
+  const conditions: string[] = [HIDE_BOARD_LAYOUT_FILTER];
 
   if (creatorName) {
     const creatorFilter = buildMemoCreatorFilter(creatorName);

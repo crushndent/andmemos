@@ -159,16 +159,37 @@ A board's lists are the union of:
 1. every `<list>` found on its cards, and
 2. the lists the client **remembers** for that board (empty lists, and order).
 
-Tags alone cannot hold an empty list or an order, so clients keep a small layout of their own:
+Tags alone cannot hold an empty list or an order, so that **layout** is stored in memos too, shared by
+every client: one memo per board, owned by the user, tagged `#board-layout`.
 
-```json
-{"boards": ["work"], "lists": {"work": ["todo", "doing", "done"]}}
+```
+#board-layout
+
+# TWork
+
+- todo
+- doing
+- done
 ```
 
-The web app keeps this in the browser's `localStorage` (`memos-board-layout`). **It is not synced**:
-the web app and the Android app each have their own, so empty lists and custom order can differ between
-them, while the cards (tags and positions) always agree. Keep the layout on the device (e.g. DataStore)
-and treat it as a hint.
+- **Reading:** load `GET /api/v1/memos?filter=tag in ["board-layout"] && creator == "users/<you>"` (follow
+  `nextPageToken`). The first `# ` heading names the board; each `- `/`* `/`+ ` item is a list, in order.
+  Ignore fenced code and other text; normalize names like §2 (`to do` → `to-do`) and drop duplicates.
+  Two memos for one board (e.g. made offline on two devices) merge: the oldest memo's lists first, then any
+  others. Write to the oldest.
+- **Writing:** when a board's lists change, rewrite its memo's whole text in the format above
+  (`PATCH …?updateMask=content`), or create it (`POST`, `visibility: PRIVATE`) if the board has none.
+  Read it fresh first; the last write wins. Write nothing until the layout memos have loaded, or a stale
+  copy overwrites the shared one.
+- **Hiding:** a layout memo is data, not a note. Every memo list a client shows must leave it out; the web
+  app adds `!(tag in ["board-layout"])` to every list and stats filter, and drops the tag from tag counts.
+  The tag is not under `board/`, so it is never read as a card. Other Memos clients show it as an ordinary
+  private memo, which is harmless.
+- **Cards are not listed in it.** Card membership and order come from the cards' tags and `boardPositions`
+  only; a second copy would drift.
+- A device may cache the layout for offline use (the web app keeps one in `localStorage`,
+  `memos-board-layout`), but the memos are the truth. Builds before shared layouts kept a layout only in the
+  browser; the web app uploads it once (`memos-board-layout-uploaded` marks that).
 
 Remember the lists a board shows (append any newly seen list to the saved order). Otherwise, when
 the last card leaves a list the column disappears, because no tag mentions it any more. Offer
@@ -192,7 +213,7 @@ no lists at all, use a list named `inbox`. Moving such a card rewrites `#board/w
 
 ### 5.4 Boards
 
-Boards are the distinct names found on cards plus the remembered ones, sorted by name. Show the one the
+Boards are the distinct names found on cards plus those with a layout memo, sorted by name. Show the one the
 user chose, else the first.
 
 ## 6. Card order
@@ -304,7 +325,9 @@ Examples (placing tag in the first column):
 3. **`boardPositions` replaces the map**: merge with the existing value or you erase the other boards' order.
 4. **Do not parse the text to find a card's list**; use `memo.tags`. Parse the text only to rewrite a tag.
 5. Dropping outside the card stack must still work (§6.3).
-6. A list with no cards must stay visible (§5.1) or it vanishes the moment its last card moves.
+6. A list with no cards must stay visible (§5.1) or it vanishes the moment its last card moves. Save it in the
+   board's layout memo so other clients see it too.
+9. **Hide `#board-layout` memos** from every list, search, calendar and tag count (§5.1).
 7. Comments (memos with `parent`) and archived memos are not cards.
 8. Positions are IEEE doubles: keep them as `Double`, not `Float` or `Int`.
 

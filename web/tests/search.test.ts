@@ -44,7 +44,9 @@ describe("regex search filter", () => {
       { factor: "tagSearch", value: "work" },
       { factor: "regexSearch", value: "^todo" },
     ];
-    expect(buildMemoFilter({ filters, includePinned: false })).toBe('(tag in ["work"]) && (content.matches("(?i)^todo"))');
+    expect(buildMemoFilter({ filters, includePinned: false })).toBe(
+      '(!(tag in ["board-layout"])) && (tag in ["work"]) && (content.matches("(?i)^todo"))',
+    );
   });
 
   it("survives the URL round trip, including characters that are special in a query", () => {
