@@ -21,7 +21,7 @@ const Boards = () => {
   const t = useTranslate();
   const navigate = useNavigate();
   const { board: boardParam } = useParams();
-  const { layout, addBoard, addList, moveList, rememberLists, removeList } = useBoardLayout();
+  const { layout, loaded: layoutLoaded, addBoard, addList, moveList, rememberLists, removeList } = useBoardLayout();
   const [openCard, setOpenCard] = useState<BoardCard | null>(null);
   const [newBoard, setNewBoard] = useState("");
 
@@ -45,8 +45,8 @@ const Boards = () => {
   // Lists come from card tags, so a list whose last card moves away would disappear. Remember what is shown.
   const listOrderKey = listOrder.join("\n");
   useEffect(() => {
-    if (current && listOrder.length > 0) rememberLists(current.name, listOrder);
-  }, [current?.name, listOrderKey, rememberLists]);
+    if (current && listOrder.length > 0 && layoutLoaded) rememberLists(current.name, listOrder);
+  }, [current?.name, listOrderKey, layoutLoaded, rememberLists]);
   const openMemo = openCard ? memos.find((memo) => memo.name === openCard.memo.name) : undefined;
 
   const submitNewBoard = (event: FormEvent) => {

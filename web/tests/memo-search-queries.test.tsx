@@ -31,7 +31,10 @@ describe("memo search requests", () => {
     const filter = buildMemoFilter({ filters: buildQuickFindFilters(expression, [], true, "cel"), includePinned: false });
     const { result } = renderHook(() => useInfiniteMemos({ filter }), { wrapper: createWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(listMemos).toHaveBeenCalledWith(expect.objectContaining({ filter: `(${expression})` }), expect.anything());
+    expect(listMemos).toHaveBeenCalledWith(
+      expect.objectContaining({ filter: `(!(tag in ["board-layout"])) && (${expression})` }),
+      expect.anything(),
+    );
     expect(result.current.data?.pages[0].memos).toEqual([]);
   });
 
