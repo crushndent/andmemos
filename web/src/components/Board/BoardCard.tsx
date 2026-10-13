@@ -5,10 +5,10 @@ import type { DragEvent } from "react";
 import {
   type BoardCard as BoardCardModel,
   type DueState,
-  getBoardTags,
   getCardTitle,
   getChecklistProgress,
   getDueState,
+  getLabelTags,
 } from "@/lib/board";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,7 @@ const BoardCard = ({ card, now, dragging, onOpen, onDragStart, onDragEnd }: Prop
   const dueState = due ? getDueState(due, now, card.list) : undefined;
   const checklist = getChecklistProgress(memo.content);
   const attachmentCount = memo.attachments.length;
-  const labels = memo.tags.filter((tag) => getBoardTags([tag]).length === 0);
+  const labels = getLabelTags(memo.tags);
 
   return (
     <article

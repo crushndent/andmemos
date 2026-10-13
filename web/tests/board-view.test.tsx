@@ -3,7 +3,7 @@ import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { act, createEvent, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import BoardView, { dropIndexFromPointer } from "@/components/Board/BoardView";
-import { buildBoards } from "@/lib/board";
+import { type BoardLayout, buildBoards } from "@/lib/board";
 import { type Memo, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 
 const update = vi.hoisted(() => vi.fn(async () => ({})));
@@ -15,25 +15,38 @@ vi.mock("@/hooks/useMemoQueries", () => ({
 }));
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
 
+/** The server reports every ancestor of a hierarchical tag: `a/b/c` arrives as `a`, `a/b`, `a/b/c`. */
+const withAncestors = (tag: string): string[] => tag.split("/").map((_, i, parts) => parts.slice(0, i + 1).join("/"));
+
 const memo = (n: number, tag: string, extra: Record<string, unknown> = {}): Memo =>
-  create(MemoSchema, { name: `memos/${n}`, content: `Card ${n} #${tag}`, tags: [tag], snippet: `Card ${n}`, ...extra } as Record<
-    string,
-    unknown
-  >);
+  create(MemoSchema, {
+    name: `memos/${n}`,
+    content: `Card ${n} #${tag}`,
+    tags: withAncestors(tag),
+    snippet: `Card ${n}`,
+    ...extra,
+  } as Record<string, unknown>);
 
 const dataTransfer = () => ({ setData: vi.fn(), effectAllowed: "", dropEffect: "" });
 
 const renderBoard = (
   memos: Memo[],
-  handlers: Partial<{ onOpenCard: () => void; onAddList: (n: string) => void; onMoveList: () => void }> = {},
+  handlers: Partial<{
+    onOpenCard: () => void;
+    onAddList: (n: string) => void;
+    onMoveList: () => void;
+    onRemoveList: (n: string) => void;
+  }> = {},
+  layout?: BoardLayout,
 ) => {
-  const board = buildBoards(memos).find((b) => b.name === "work") ?? buildBoards(memos)[0];
+  const board = buildBoards(memos, layout).find((b) => b.name === "work") ?? buildBoards(memos, layout)[0];
   return render(
     <BoardView
       board={board}
       onOpenCard={handlers.onOpenCard ?? vi.fn()}
       onAddList={handlers.onAddList ?? vi.fn()}
       onMoveList={handlers.onMoveList ?? vi.fn()}
+      onRemoveList={handlers.onRemoveList ?? vi.fn()}
     />,
   );
 };
@@ -142,7 +155,7 @@ describe("<BoardView>", () => {
       update: {
         name: "memos/1",
         content: "Card 1 #board/work/done",
-        tags: ["board/work/done"],
+        tags: ["board", "board/work", "board/work/done"],
         boardPositions: { work: 150 },
       },
       updateMask: ["content", "board_positions"],
@@ -215,5 +228,160 @@ describe("<BoardView>", () => {
     fireEvent.click(within(screen.getByRole("region", { name: "Done" })).getByRole("button", { name: "board.move-list-left" }));
     expect(onMoveList).toHaveBeenCalledWith("done", -1);
     expect(within(screen.getByRole("region", { name: "Todo" })).getByRole("button", { name: "board.move-list-left" })).toBeDisabled();
+  });
+
+  describe("aiming at the top or bottom of a list", () => {
+    const todoWithTwo = () =>
+      renderBoard([
+        memo(1, "board/work/todo", { boardPositions: { work: 100 } }),
+        memo(2, "board/work/todo", { boardPositions: { work: 200 } }),
+      ]);
+
+    it("drops above the first card when the pointer is over the list header", async () => {
+      todoWithTwo();
+      const todo = screen.getByRole("region", { name: "Todo" });
+      layoutCards(todo.querySelector<HTMLElement>("[data-drop-list]") as HTMLElement);
+      const dt = dataTransfer();
+
+      fireEvent.dragStart(screen.getByRole("article", { name: "Card 2" }), { dataTransfer: dt });
+      dragAt("dragOver", todo.querySelector("header") as Element, -20, dt);
+      await act(async () => {
+        dragAt("drop", todo.querySelector("header") as Element, -20, dt);
+      });
+
+      expect(update).toHaveBeenCalledTimes(1);
+      const call = (update.mock.calls[0] as unknown[])[0] as { update: { name: string; boardPositions: Record<string, number> } };
+      expect(call.update.name).toBe("memos/2");
+      expect(call.update.boardPositions.work).toBeLessThan(100);
+    });
+
+    it("drops below the last card when the pointer is over the 'Add a card' button", async () => {
+      todoWithTwo();
+      const todo = screen.getByRole("region", { name: "Todo" });
+      layoutCards(todo.querySelector<HTMLElement>("[data-drop-list]") as HTMLElement);
+      const addButton = within(todo).getByRole("button", { name: "board.add-card" });
+      const dt = dataTransfer();
+
+      fireEvent.dragStart(screen.getByRole("article", { name: "Card 1" }), { dataTransfer: dt });
+      dragAt("dragOver", addButton, 400, dt);
+      await act(async () => {
+        dragAt("drop", addButton, 400, dt);
+      });
+
+      const call = (update.mock.calls[0] as unknown[])[0] as { update: { name: string; boardPositions: Record<string, number> } };
+      expect(call.update.name).toBe("memos/1");
+      expect(call.update.boardPositions.work).toBeGreaterThan(200);
+    });
+
+    it("drops into an empty list from anywhere in its column", async () => {
+      renderBoard(
+        [memo(1, "board/work/todo", { boardPositions: { work: 100 } })],
+        {},
+        { boards: ["work"], lists: { work: ["todo", "done"] } },
+      );
+      const done = screen.getByRole("region", { name: "Done" });
+      const dt = dataTransfer();
+
+      fireEvent.dragStart(screen.getByRole("article", { name: "Card 1" }), { dataTransfer: dt });
+      dragAt("dragOver", done.querySelector("header") as Element, 5, dt);
+      await act(async () => {
+        dragAt("drop", done.querySelector("header") as Element, 5, dt);
+      });
+
+      const call = (update.mock.calls[0] as unknown[])[0] as { update: { content: string }; updateMask: string[] };
+      expect(call.update.content).toBe("Card 1 #board/work/done");
+      expect(call.updateMask).toEqual(["content", "board_positions"]);
+    });
+
+    it("shows the drop line without moving any card: it is absolutely positioned in the gap", () => {
+      todoWithTwo();
+      const todo = screen.getByRole("region", { name: "Todo" });
+      layoutCards(todo.querySelector<HTMLElement>("[data-drop-list]") as HTMLElement);
+      const dt = dataTransfer();
+
+      fireEvent.dragStart(screen.getByRole("article", { name: "Card 2" }), { dataTransfer: dt });
+      dragAt("dragOver", todo.querySelector("header") as Element, -20, dt);
+
+      const line = todo.querySelector<HTMLElement>("[data-drop-indicator]");
+      expect(line).not.toBeNull();
+      expect(line).toHaveClass("absolute", "pointer-events-none");
+      expect(line?.parentElement).toHaveClass("relative");
+    });
+
+    it("shows the line at the bottom when aiming below the last card", () => {
+      todoWithTwo();
+      const todo = screen.getByRole("region", { name: "Todo" });
+      layoutCards(todo.querySelector<HTMLElement>("[data-drop-list]") as HTMLElement);
+      const dt = dataTransfer();
+
+      fireEvent.dragStart(screen.getByRole("article", { name: "Card 1" }), { dataTransfer: dt });
+      dragAt("dragOver", within(todo).getByRole("button", { name: "board.add-card" }), 400, dt);
+
+      expect(todo.querySelector('[data-drop-indicator="bottom"]')).not.toBeNull();
+      expect(todo.querySelectorAll("[data-drop-indicator]")).toHaveLength(1);
+    });
+  });
+
+  describe("adding a card", () => {
+    const openAdd = (list: string) => {
+      const region = screen.getByRole("region", { name: list });
+      fireEvent.click(within(region).getByRole("button", { name: "board.add-card" }));
+      return region;
+    };
+    const submit = async (region: HTMLElement, text: string) => {
+      fireEvent.change(within(region).getByLabelText("board.card-placeholder"), { target: { value: text } });
+      await act(async () => {
+        fireEvent.click(within(region).getAllByRole("button", { name: "board.add-card" }).at(-1) as HTMLElement);
+      });
+    };
+
+    it("puts the new card in the list it was added to, with that list's tag, at the bottom", async () => {
+      renderBoard([
+        memo(1, "board/work/todo"),
+        memo(2, "board/work/doing", { boardPositions: { work: 100 } }),
+        memo(3, "board/work/doing", { boardPositions: { work: 200 } }),
+      ]);
+      await submit(openAdd("Doing"), "Write tests");
+
+      expect(update).not.toHaveBeenCalled();
+      const created = (create_.mock.calls[0] as unknown[])[0] as { content: string; boardPositions: Record<string, number> };
+      expect(created.content).toBe("Write tests #board/work/doing");
+      expect(created.boardPositions.work).toBeGreaterThan(200);
+    });
+
+    it("gives cards that have no position one first, so the new card really is last", async () => {
+      renderBoard([memo(1, "board/work/todo"), memo(2, "board/work/todo")]);
+      await submit(openAdd("Todo"), "Third");
+
+      const renumbered = update.mock.calls.map(
+        (call) => (call as unknown[])[0] as { update: { name: string; boardPositions: Record<string, number> } },
+      );
+      expect(renumbered.map((c) => c.update.name).sort()).toEqual(["memos/1", "memos/2"]);
+      const positions = renumbered.map((c) => c.update.boardPositions.work);
+      const created = (create_.mock.calls[0] as unknown[])[0] as { boardPositions: Record<string, number> };
+      expect(created.boardPositions.work).toBeGreaterThan(Math.max(...positions));
+    });
+
+    it("starts an empty list at the first position", async () => {
+      renderBoard([memo(1, "board/work/todo")], {}, { boards: ["work"], lists: { work: ["todo", "ideas"] } });
+      await submit(openAdd("Ideas"), "First idea");
+      expect((create_.mock.calls[0] as unknown[])[0]).toMatchObject({
+        content: "First idea #board/work/ideas",
+        boardPositions: { work: 1024 },
+      });
+    });
+  });
+
+  describe("removing an empty list", () => {
+    it("offers removal only for a list with no cards", () => {
+      const onRemoveList = vi.fn();
+      renderBoard([memo(1, "board/work/todo")], { onRemoveList }, { boards: ["work"], lists: { work: ["todo", "ideas"] } });
+
+      expect(
+        within(screen.getByRole("region", { name: "Todo" })).queryByRole("button", { name: "board.remove-list" }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(within(screen.getByRole("region", { name: "Ideas" })).getByRole("button", { name: "board.remove-list" }));
+      expect(onRemoveList).toHaveBeenCalledWith("ideas");
+    });
   });
 });

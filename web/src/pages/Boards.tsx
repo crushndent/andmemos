@@ -21,7 +21,7 @@ const Boards = () => {
   const t = useTranslate();
   const navigate = useNavigate();
   const { board: boardParam } = useParams();
-  const { layout, addBoard, addList, moveList } = useBoardLayout();
+  const { layout, addBoard, addList, moveList, rememberLists, removeList } = useBoardLayout();
   const [openCard, setOpenCard] = useState<BoardCard | null>(null);
   const [newBoard, setNewBoard] = useState("");
 
@@ -42,6 +42,11 @@ const Boards = () => {
   const boards = useMemo(() => buildBoards(memos, layout), [memos, layout]);
   const current = boards.find((board) => board.name === boardParam) ?? boards[0];
   const listOrder = current?.lists.map((list) => list.name) ?? [];
+  // Lists come from card tags, so a list whose last card moves away would disappear. Remember what is shown.
+  const listOrderKey = listOrder.join("\n");
+  useEffect(() => {
+    if (current && listOrder.length > 0) rememberLists(current.name, listOrder);
+  }, [current?.name, listOrderKey, rememberLists]);
   const openMemo = openCard ? memos.find((memo) => memo.name === openCard.memo.name) : undefined;
 
   const submitNewBoard = (event: FormEvent) => {
@@ -97,6 +102,7 @@ const Boards = () => {
           onOpenCard={setOpenCard}
           onAddList={(list) => addList(current.name, list, listOrder)}
           onMoveList={(list, direction) => moveList(current.name, list, direction, listOrder)}
+          onRemoveList={(list) => removeList(current.name, list)}
         />
       ) : (
         !isLoading && <p className="px-1 text-sm text-muted-foreground">{t("board.empty-hint")}</p>

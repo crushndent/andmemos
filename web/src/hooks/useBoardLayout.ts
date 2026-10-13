@@ -1,5 +1,14 @@
 import { useCallback, useState } from "react";
-import { BOARD_LAYOUT_STORAGE_KEY, type BoardLayout, parseBoardLayout, withBoard, withList, withListMoved } from "@/lib/board";
+import {
+  BOARD_LAYOUT_STORAGE_KEY,
+  type BoardLayout,
+  parseBoardLayout,
+  withBoard,
+  withList,
+  withListMoved,
+  withListsRemembered,
+  withoutList,
+} from "@/lib/board";
 
 const readLayout = (): BoardLayout => {
   try {
@@ -40,5 +49,11 @@ export const useBoardLayout = () => {
     [update],
   );
 
-  return { layout, addBoard, addList, moveList };
+  const rememberLists = useCallback(
+    (board: string, shown: readonly string[]) => update((current) => withListsRemembered(current, board, shown)),
+    [update],
+  );
+  const removeList = useCallback((board: string, list: string) => update((current) => withoutList(current, board, list)), [update]);
+
+  return { layout, addBoard, addList, moveList, rememberLists, removeList };
 };
